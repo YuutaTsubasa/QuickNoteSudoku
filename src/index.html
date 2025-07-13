@@ -4,9 +4,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC&family=Source+Code+Pro&display=swap" rel="stylesheet">
   <title>快速筆記數獨</title>
   <style>
+    @font-face {
+      font-family: 'Noto Sans TC';
+      src: url('./fonts/NotoSansTC-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Noto Sans TC';
+      src: url('./fonts/NotoSansTC-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: bold;
+    }
+
+    @font-face {
+      font-family: 'Source Code Pro';
+      src: url('./fonts/SourceCodePro-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Source Code Pro';
+      src: url('./fonts/SourceCodePro-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: bold;
+    }
     body {
       font-family: 'Noto Sans TC', sans-serif;
       display: flex;
@@ -77,9 +102,13 @@
     }
 
     #number-pad button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 40px;
       height: 40px;
       font-size: 18px;
+      padding: 0;
       cursor: pointer;
       background: #fff;
       border: 1px solid #aaa;
@@ -241,6 +270,7 @@
 
       .notes {
         font-size: calc(2.5vw);
+        line-height: 2vw;
       }
 
       .notes div[style*="font-weight: bold"] {
