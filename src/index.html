@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Quick Note Sudoku</title>
   <link rel="stylesheet" href="assets/icons/phosphor/style.css" />
   <style>
@@ -65,11 +65,12 @@
 
     .screen {
       display: none;
-      width: 100%;
+      width: 100vw;
       min-height: 100vh;
       position: absolute;
       top: 0;
       left: 0;
+      padding-top: env(safe-area-inset-top);
 
       &.active {
         display: flex;
@@ -485,7 +486,6 @@
 
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
       background: #ffffff;
-      overflow: hidden;
       padding: 4px;
       border: 2px solid #bbb;
     }
@@ -665,9 +665,8 @@
       color: #222;
       font-family: "Noto Sans TC", sans-serif;
       background: linear-gradient(to top, #e0e0e0 0%, #ffffff 30%, #ffffff 100%);
-      width: 100%;
-      min-height: 100%;
-
+      width: 100vw;
+      min-height: 100vh;
       transform: translateX(20px);
       opacity: 0;
       animation: enterAnimation 0.5s ease-out 0s forwards;
@@ -825,7 +824,7 @@
       <!-- <button class="settings-button" onclick="openSettings()">⚙️</button> -->
     </div>
     <div class="main-lower">
-      <div class="sudoku-marquee bottom">
+      <div class="sudoku-marquee">
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
       <div class="button-area has-grid">
@@ -952,6 +951,27 @@
         gameplay,
         achievements
     };
+    const animationReplayElementQueries = {
+      "#main_page" : {
+        ".main-lower": {
+          ".scroll-text": null 
+        }
+      }
+    }
+    function replayAnimationWorkaround(root, tree) {
+      for (let query in tree) {
+        root.querySelectorAll(query)
+          .forEach(element => {
+            element.style = "display: none";
+            requestAnimationFrame(() => {
+              element.style = "";
+              if (tree[query]) replayAnimationWorkaround(element, tree[query]);
+            });
+          });
+      }
+    }
+
+
     let randomFunc = Math.random;
     let mode;
 
@@ -1097,8 +1117,12 @@
           continue;
         }
         page.classList.add('active');
+        replayAnimationWorkaround(page, animationReplayElementQueries[`#${page.id}`]);
       }
 
+      window.scrollTo({
+        top: 0
+      });
       loadedTabs.clear();
       Object.values(allPages).filter(page => page.classList.contains("leave"))
         .forEach(page => page.classList.remove("leave"));
