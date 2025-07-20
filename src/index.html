@@ -1,10 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>快速筆記數獨</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Note Sudoku</title>
+  <link rel="stylesheet" href="assets/icons/phosphor/style.css" />
   <style>
     @font-face {
       font-family: 'Noto Sans TC';
@@ -21,87 +21,382 @@
     }
 
     @font-face {
+      font-family: 'Source Han Serif TC';
+      src: url('./fonts/SourceHanSerifTC-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Source Han Serif TC';
+      src: url('./fonts/SourceHanSerifTC-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: bold;
+    }
+
+    @font-face {
       font-family: 'Source Code Pro';
       src: url('./fonts/SourceCodePro-Regular.ttf') format('truetype');
       font-weight: 400;
       font-style: normal;
     }
+
     @font-face {
       font-family: 'Source Code Pro';
-      src: url('./fonts/SourceCodePro-Medium.ttf') format('truetype');
-      font-weight: 500;
+      src: url('./fonts/SourceCodePro-Bold.ttf') format('truetype');
+      font-weight: 700;
       font-style: bold;
     }
-    body {
-      font-family: 'Noto Sans TC', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: #f7f7f7;
+
+    * {
       margin: 0;
-      padding: 2rem;
-    }
-
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-    }
-
-    #controls {
-      margin-bottom: 1rem;
-    }
-
-    #sudoku-board {
-      display: grid;
-      width: 90vw;  /* 或 max-width: 540px 可防止太大 */
-      max-width: 540px;
-      aspect-ratio: 1 / 1;
-      grid-template-columns: repeat(9, 1fr);
-      grid-template-rows: repeat(9, 1fr);
-      gap: 2px;
-    }
-
-    .cell {
-      position: relative;
-      border: 1px solid #aaa;
-      background-color: #fff;
-      text-align: center;
-      cursor: pointer;
+      padding: 0;
       box-sizing: border-box;
     }
-
-    .cell.filled {
-      background-color: #d0f0ff;
-      font-weight: bold;
-    }
-
-    .notes {
-      position: absolute;
+    
+    html, body {
+      font-family: 'Source Code Pro', 'Noto Sans TC', sans-serif;
       width: 100%;
       height: 100%;
-      font-size: 14px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      color: #555;
-      z-index: 1;
-      pointer-events: none;
+      background-color: #1e293b; /* slate-900 */
+      overflow-x: hidden;
+      user-select: none;
     }
 
-    .notes div {
-      display: flex;
-      align-items: center;
+    .screen {
+      display: none;
+      width: 100%;
+      min-height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+
+      &.active {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    #splash_screen {
+      background-color: #1e293b; /* slate-900 */
+      color: white;
       justify-content: center;
     }
 
+    .logo-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+
+      & img {
+        width: 50%;
+      }
+
+      &.enter {
+          transform: translateX(20px);
+          opacity: 0;
+          animation: enterAnimation 0.5s ease-out 0.4s forwards;
+      }
+    }
+
+    @keyframes enterAnimation {
+      from {
+          transform: translateX(20px);
+          opacity: 0;
+      }
+      to {
+          transform: translateX(0);
+          opacity: 1;
+      }
+    }
+
+    @keyframes leaveAnimation {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(-20px);
+            opacity: 0;
+        }
+    }
+
+    /* 整個主頁背景色不變，保留漸層 */
+    #main_page {
+      background: linear-gradient(to top right, #1e293b, #334155);
+      color: #0f172a;
+      overflow: hidden;
+    }
+
+    #gameplay_page {
+      transform: translateX(20px);
+      opacity: 0;
+      animation: enterAnimation 0.5s ease-out 0s forwards;
+
+      background: linear-gradient(to top, #e0e0e0 0%, #ffffff 30%, #ffffff 100%);
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 主容器 */
+    .main-lower {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: calc(50% + 200px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s ease-out 0.3s forwards;
+    }
+
+    @keyframes fadeUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 跑馬燈下方顯示 */
+    .sudoku-marquee {
+      width: 100%;
+      height: 200px;
+      background: transparent;
+      z-index: 1;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      position: relative;
+      top: 150px;
+
+      &.top {
+        position: fixed;
+        height: 120px;
+        top: 0px;
+        transform: translateX(20px);
+        opacity: 0;
+        animation: enterAnimation 0.8s ease-out 0.2s forwards;
+      }
+    }
+
+    .scroll-text {
+      font-size: 150px;
+      font-weight: bold;
+      -webkit-text-fill-color: transparent;
+      -webkit-text-stroke-width: 1px;
+      -webkit-text-stroke-color: white;
+      padding: 0.25rem 1rem;
+      animation: scrollText 40s linear infinite;
+      white-space: nowrap;
+    }
+
+    @keyframes scrollText {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-50%);
+      }
+    }
+
+    /* 按鈕區 */
+    .button-area {
+      padding-top: 100px;
+      flex: 1;
+      background: white;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      z-index: 2;
+      position: relative;
+      clip-path: polygon(0 100px, 0 100%, 100% 100%, 100% 0%);
+    }
+
+    .button-area button {
+      width: 80%;
+      height: 50px;
+      text-align: left;
+      padding-left: 25px;
+    }
+
+    /* 背景圖與角色圖層容器 */
+    .scene-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .fancy-button {
+      position: relative;
+      background: linear-gradient(145deg, #0080ff, #0040ff);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      color: white;
+      font-weight: bold;
+      padding: 0.5rem 1.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      font-size: 1.2rem;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+      transition: transform 0.1s ease;
+      cursor: pointer;
+    }
+
+    .fancy-button.active {
+      background: linear-gradient(145deg, #fbff00, #fffb00);
+      color: black;
+    }
+
+    .fancy-button:hover, .fancy-button.active:hover {
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 1.0) 0px,
+        rgba(255, 255, 255, 1.0) 2px,
+        rgba(230, 230, 230, 1.0)  2px,
+        rgba(230, 230, 230, 1.0)  4px
+      ); 
+      color: black;
+    }
+
+    .fancy-button:active, .fancy-button.active:active {
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 1.0) 0px,
+        rgba(255, 255, 255, 1.0) 2px,
+        rgba(230, 230, 230, 1.0)  2px,
+        rgba(230, 230, 230, 1.0)  4px
+      );
+      color: black;
+    }
+
+    /* 背景圖鋪滿且置中 */
+    .scene-layer .bg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      z-index: 0;
+      opacity: 0;
+      filter: blur(5px) brightness(0.9); /* 模糊 + 變暗 */
+      animation: enterAnimation 0.8s ease-out 0.2s forwards;
+    }
+
+    #errors:not([data-content="0"]){
+      color: rgb(247, 8, 8)
+    }
+
+    /* 角色圖置中且高為整個畫面高 */
+    .scene-layer .char {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: center;
+      transform: translateX(-50%) translateY(20px);
+      object-fit: contain;
+      z-index: 1;
+      opacity: 0;
+      filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5)); /* 加陰影 */
+      animation: enterAnimation 0.8s ease-out 0.4s forwards;
+    }
+
+    /* 齒輪鈕 */
+    .settings-button {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background-color: rgba(255, 255, 255, 0.8);
+      border: none;
+      font-size: 1.5rem;
+      border-radius: 50%;
+      padding: 0.5rem;
+      cursor: pointer;
+      z-index: 2;
+      transition: background-color 0.2s ease;
+    }
+
+    .settings-button:hover {
+      background-color: rgba(255, 255, 255, 1);
+    }
+
+    .has-grid::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .control-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1e1e1e;
+      color: #ffffff;
+      padding: 1rem;
+      margin: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .info-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 80px;
+    }
+
+    .info-block .label {
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+
+    .info-block .value {
+      font-size: 1.8rem;
+      font-weight: bold;
+    }
+
+    .control-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .control-right button {
+      text-align: left;
+      width: 100%;
+    }
+
     #number-pad {
-      margin-top: 1.5rem;
+      margin-top: 1rem;
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
 
     #number-pad button {
+      font-family: "Source Code Pro", monospace;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -110,21 +405,110 @@
       font-size: 18px;
       padding: 0;
       cursor: pointer;
-      background: #fff;
       border: 1px solid #aaa;
       border-radius: 6px;
     }
 
-    #noteModeBtn.active {
-      background-color: #fce4ec;
-      border-color: #f06292;
+    @keyframes flash {
+      0%, 100% { background-color: #fff59d; }
+      50% { background-color: #ffee58; }
     }
 
-    .cell.selected {
-      outline: 2px solid #2196f3;
-      z-index: 2;
+    #general-popup {
+      transform: translateX(20px);
+      opacity: 0;
+      animation: enterAnimation 0.5s ease-out 0s forwards;
     }
 
+    .popup-backdrop {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(10px);
+    }
+
+    .popup-background {
+      background-color: white;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .popup-box {
+      width: 100%;
+      max-width: 600px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .popup-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      padding: 1rem;
+      text-align: center;
+      font-family: 'Source Han Serif TC', sans-serif;
+    }
+
+    .popup-content {
+      padding: 1rem;
+      font-weight: bold;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .popup-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* 整體盤面容器 */
+    #sudoku-board {
+      display: grid;
+      width: 90vw;
+      max-width: 540px;
+      aspect-ratio: 1 / 1;
+      grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(9, 1fr);
+      gap: 1px;
+
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      background: #ffffff;
+      overflow: hidden;
+      padding: 4px;
+      border: 2px solid #bbb;
+    }
+
+    /* 每個格子 */
+    .cell {
+      position: relative;
+      border: 1px solid #ddd;
+      background-color: #fff;
+      text-align: center;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: background 0.2s ease;
+    }
+
+    /* 鎖定的初始數字 */
+    .cell.filled {
+      background: linear-gradient(145deg, #0080ff, #0040ff);
+      font-weight: bold;
+      color: white;
+    }
+
+    /* 數字顯示 */
     .cell .value {
       position: absolute;
       top: 0; left: 0;
@@ -135,23 +519,79 @@
       justify-content: center;
       font-size: 45px;
       font-weight: bold;
-      color: #000;
       z-index: 2;
+      font-family: 'Source Code Pro', monospace;
     }
-
+    
     .cell .value.locked {
-      color: black;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
     }
 
     .cell .value.user {
-      color: #2196f3;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
     }
 
-    .cell.error, .cell.error .value.user{
+    /* 筆記模式 */
+    .notes {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      font-size: 12px;
+      color: #555;
+      z-index: 1;
+      pointer-events: none;
+      font-family: 'Source Code Pro', monospace;
+    }
+
+    .notes div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px;
+    }
+
+    .notes .single,
+    .notes .unique-note {
+      color: #2196f3 !important;
+      font-weight: bold;
+    }
+
+    /* 選中格子 */
+    .cell.selected {
+      outline: 2px solid #0077cc;
+      z-index: 2;
+      background: #e6f4ff;
+    }
+
+    /* 筆記模式開啟時 */
+    .cell.note-mode {
+      background-color: #e0f7e9 !important;
+    }
+
+    /* 錯誤格子 */
+    .cell.error,
+    .cell.error .value.user {
       border: 2px solid red !important;
       color: red !important;
     }
 
+    /* 高亮格子 */
+    .cell.highlight {
+      background: #fff000 !important;
+      animation: flash 0.4s ease-in-out;
+      color: black !important;
+    }
+
+    .cell.highlight .value {
+      color: black !important;
+    }
+
+    /* 九宮格粗線條 */
     .cell.row-0,
     .cell.row-3,
     .cell.row-6 { border-top: 2px solid #000; }
@@ -162,96 +602,6 @@
 
     .cell.row-8 { border-bottom: 2px solid #000; }
     .cell.col-8 { border-right: 2px solid #000; }
-
-    .cell.highlight {
-      background-color: #fff59d !important; /* 明亮黃色 */
-      animation: flash 0.4s ease-in-out;
-    }
-
-    .cell.highlight.selected {
-      background-color: #fff000 !important;
-    }
-
-    @keyframes flash {
-      0%, 100% { background-color: #fff59d; }
-      50% { background-color: #ffee58; }
-    }
-
-    #win-overlay {
-      display: none;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.4);
-      z-index: 100;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-    }
-
-    .win-box {
-      background: white;
-      padding: 2rem 3rem;
-      font-size: 2rem;
-      border-radius: 16px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.25);
-    }
-
-    #win-overlay .win-box button {
-      margin-top: 1rem;
-      font-size: 1.2rem;
-      background-color: #2196f3;
-      color: white;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 0.5rem;
-      cursor: pointer;
-    }
-
-    #confetti {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    #status-bar {
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
-    }
-
-    .value,
-    .notes div {
-      font-family: 'Source Code Pro', monospace;
-    }
-
-    .notes div[style*="font-weight: bold"] {
-      font-size: 16px;
-      color: black;
-    }
-
-    .cell.note-mode {
-      background-color: #e0f7e9 !important;
-    }
-
-    .notes .single {
-      color: #2196f3 !important;  /* 藍色字 */
-      font-weight: bold;
-    }
-
-    .notes .unique-note {
-      color: #2196f3 !important;
-      font-weight: bold;
-    }
-
-    #customInputBox textarea {
-      font-family: 'Source Code Pro', monospace;
-      padding: 8px;
-      font-size: 1rem;
-      resize: vertical;
-    }
 
     @media (max-width: 600px) {
       body {
@@ -278,44 +628,491 @@
         color: black;
       }
     }
+
+    .topbar {
+      width: 100%;
+      margin-top: 5px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .topbar .back-button {
+      background: none;
+      border: none;
+      color: #1e293b; /* slate-900 */
+      font-size: 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0.5rem;
+      margin-right: 1rem;
+    }
+
+    .topbar .back-button:hover {
+      color: #0284c7;
+    }
+
+    .topbar-title {
+      font-family: "Source Han Serif TC", "思源宋體", serif;
+      font-size: 2rem;
+      color: #1e293b;
+      flex-grow: 1;
+    }
+
+    #achievements-page {
+      color: #222;
+      font-family: "Noto Sans TC", sans-serif;
+      background: linear-gradient(to top, #e0e0e0 0%, #ffffff 30%, #ffffff 100%);
+      width: 100%;
+      min-height: 100%;
+
+      transform: translateX(20px);
+      opacity: 0;
+      animation: enterAnimation 0.5s ease-out 0s forwards;
+    }
+
+    .achievement-section {
+      margin-bottom: 2rem;
+    }
+
+    .stats-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 1rem 0;
+      padding: 5px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stats-grid > div {
+      width: 150px;
+      background: #111;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      text-align: center;
+      color: white;
+    }
+
+    .stats-grid > div > small {
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    .stats-grid > div > div {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 0.25rem;
+    }
+
+    .achievement-tabs {
+      display: flex;
+      justify-content: center;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      gap: 10px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.5rem;
+      background: none;
+      border: none;
+      font-weight: bold;
+      font-size: 1rem;
+      color: black;
+      border: black 1px solid;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .tab-btn.active {
+      border: #c0e710 2px solid;
+      background: #c0e710;
+      color: #000;
+    }
+
+    .record-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1e1e1e;
+      color: #ffffff;
+      padding: 1rem;
+      margin: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      flex-wrap: wrap;
+    }
+
+    .mini-sudoku {
+      display: grid;
+      grid-template-rows: repeat(9, 1fr);
+      grid-template-columns: repeat(9, 1fr);
+      width: 90px;
+      height: 90px;
+      background: #fff;
+      border: 1px solid black;
+      margin-right: 1rem;
+      font-size: 8px;
+      line-height: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-sudoku div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-row {
+      display: contents;
+    }
+
+    .mini-row span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      width: 100%;
+      height: 100%;
+      border: 0.5px solid #eee;
+    }
+
+    .info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info .title {
+      font-family: 'Source Han Serif TC';
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #bebebe;
+    }
+
+    .info button {
+      margin-top: 10px;
+    }
+
+    *.leave, screen.leave, #splash_screen.leave, #main_page.leave,
+    #gameplay_page.leave, #achievements-page.leave, #general-popup.leave {
+      transform: translateX(0);
+      opacity: 1;
+      animation: leaveAnimation 0.5s ease-out 0s forwards;
+    }
   </style>
 </head>
 <body>
-  <h1>快速筆記數獨</h1>
-  <div id="controls">
-    <button id="noteModeBtn">📒 筆記模式</button>
-    <button id="fillNotesBtn">🔁 智慧提示筆記</button>
-    <button id="newGameBtn">🎲 新局</button>
-    <button id="customGameBtn">✏️ 自訂新局</button>
-    <div id="customInputBox" style="display: none; margin-top: 1rem;">
-      <textarea id="customPuzzleInput" rows="10" cols="30" placeholder="請輸入 9 行，每行 9 個數字，可以空格、逗號隔開或不隔開"></textarea><br>
-      <button id="confirmCustomBtn">✅ 確定</button>
+  <!-- Splash Screen -->
+  <div id="splash_screen" class="screen active">
+    <div class="logo-box enter"><img src="assets/logo.png" alt="Logo" /></div>
+  </div>
+
+  <!-- Main Page -->
+  <div id="main_page" class="screen">
+    <div class="scene-layer">
+      <img id="bg-image" class="bg" />
+      <div class="sudoku-marquee top">
+        <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
+      </div>
+      <img id="char-image" class="char" />
+      <!-- <button class="settings-button" onclick="openSettings()">⚙️</button> -->
+    </div>
+    <div class="main-lower">
+      <div class="sudoku-marquee bottom">
+        <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
+      </div>
+      <div class="button-area has-grid">
+        <button class="fancy-button" onclick="startPuzzle(TODAY_MODE)">今日數獨</button>
+        <button class="fancy-button" onclick="startPuzzle(FREE_MODE)">自由遊玩</button>
+        <button class="fancy-button" onclick="showCustomPopup()">自訂遊玩</button>
+        <button class="fancy-button" onclick="renderAchievements()">成就</button>
+      </div>
     </div>
   </div>
-  <div id="status-bar">
-    ⏱️ 時間：<span id="timer">00:00</span>　
-    ❌ 錯誤次數：<span id="errors">0</span>
-  </div>
-  <div id="sudoku-board"></div>
-  <div id="number-pad">
-    <!-- 1~9 按鈕 -->
-    <button data-num="1">1</button>
-    <button data-num="2">2</button>
-    <button data-num="3">3</button>
-    <button data-num="4">4</button>
-    <button data-num="5">5</button>
-    <button data-num="6">6</button>
-    <button data-num="7">7</button>
-    <button data-num="8">8</button>
-    <button data-num="9">9</button>
-  </div>
-  <div id="win-overlay">
-    <div class="win-box">
+
+  <!-- Game Play Page -->
+  <div id="gameplay_page" class="screen has-grid">
+    <div class="topbar">
+      <button class="back-button" onclick='
+        showPopup({
+          title: "確認離開",
+          content: "遊戲尚未完成，確定要離開嗎？",
+          buttons: [
+            {
+              text: "取消",
+              onClick: () => { return false; }
+            },
+            {
+              text: "確定離開",
+              onClick: () => {
+                goToScene(main);
+                return false;
+              }
+            }
+          ]
+        })'>←</button>
+      <h1 class="topbar-title"></h1>
     </div>
-    <canvas id="confetti"></canvas>
+    <div id="game-controls" class="control-panel">
+      <div class="info-block">
+        <div class="label">時間</div>
+        <div class="value" id="timer">02:00</div>
+      </div>
+      <div class="info-block">
+        <div class="label">錯誤</div>
+        <div class="value" data-content="0" id="errors">0</div>
+      </div>
+      <div class="control-right">
+        <button id="noteModeBtn" class="fancy-button"><i class="ph ph-note icon"></i> 筆記模式</button>
+        <button id="fillNotesBtn" class="fancy-button"><i class="ph ph-pen icon"></i> 智慧提示筆記</button>
+      </div>
+    </div>
+    <div id="sudoku-board"></div>
+    <div id="number-pad">
+      <!-- 1~9 按鈕 -->
+      <button class="fancy-button" data-num="1">1</button>
+      <button class="fancy-button" data-num="2">2</button>
+      <button class="fancy-button" data-num="3">3</button>
+      <button class="fancy-button" data-num="4">4</button>
+      <button class="fancy-button" data-num="5">5</button>
+      <button class="fancy-button" data-num="6">6</button>
+      <button class="fancy-button" data-num="7">7</button>
+      <button class="fancy-button" data-num="8">8</button>
+      <button class="fancy-button" data-num="9">9</button>
+    </div>
+  </div>
+
+  <div id="achievements-page" class="screen has-grid">
+    <div class="topbar">
+      <button class="back-button" onclick="goToScene(main)">←</button>
+      <h1 class="topbar-title">成就紀錄 <span style="font-size: 1rem">Achievements</span></h1>
+    </div>
+    <div class="achievement-tabs">
+      <button class="tab-btn active" data-tab="stats"><i class="ph ph-chart-bar"></i> 統計</button>
+      <button class="tab-btn" data-tab="today"><i class="ph ph-calendar-blank"></i> 今日</button>
+      <button class="tab-btn" data-tab="free"><i class="ph ph-infinity"></i> 自由</button>
+      <button class="tab-btn" data-tab="custom"><i class="ph ph-pencil-simple"></i> 自訂</button>
+    </div>
+    <div class="achievement-section" id="stats-section">
+      <div class="stats-grid">
+        <div><small>完成數獨數</small><div id="stat-total">0</div></div>
+        <div><small>完美完成數獨數</small><div id="stat-perfect">0</div></div>
+        <div><small>最快完成時間</small><div id="stat-min-time">0:00</div></div>
+        <div><small>最慢完成時間</small><div id="stat-max-time">0:00</div></div>
+        <div><small>平均完成時間</small><div id="stat-avg-time">0:00</div></div>
+        <div><small>最少錯誤數</small><div id="stat-min-errors">0</div></div>
+        <div><small>最多錯誤數</small><div id="stat-max-errors">0</div></div>
+        <div><small>平均錯誤數</small><div id="stat-avg-errors">0.00</div></div>
+      </div>
+    </div>
+    <div class="achievement-section" id="today-section">
+      <div class="achievement-list" id="today-list"></div>
+    </div>
+
+    <div class="achievement-section" id="free-section">
+      <div class="achievement-list" id="free-list"></div>
+    </div>
+
+    <div class="achievement-section" id="custom-section">
+      <div class="achievement-list" id="custom-list"></div>
+    </div>
+  </div>
+
+  <div id="general-popup" class="popup-backdrop" style="display: none;">
+    <div class="popup-background">
+      <div class="popup-box">
+        <div class="popup-title" id="popup-title">標題</div>
+        <div class="popup-content" id="popup-content">內容</div>
+        <div class="popup-buttons" id="popup-buttons">
+          <!-- 動態產生按鈕 -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
+    const TODAY_MODE = "today";
+    const FREE_MODE = "free";
+    const CUSTOM_MODE = "custom";
+
+    const splash = document.getElementById('splash_screen');
+    const main = document.getElementById('main_page');
+    const gameplay = document.getElementById('gameplay_page');
+    const achievements = document.getElementById('achievements-page');
+    const allPages = {
+        splash,
+        main,
+        gameplay,
+        achievements
+    };
+    let randomFunc = Math.random;
+    let mode;
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      loadSceneImages();
+      await runSplashScene();
+      goToScene(main);
+    });
+
+    async function runSplashScene(){
+      await wait(1500);
+      var logoBox = splash.querySelector('.logo-box');
+      logoBox.classList.remove('enter');
+      logoBox.classList.add('leave');
+    }
+
+    function showCustomPopup() {
+      showPopup({
+        title: "自訂盤面",
+        content: `
+          <div id="custom-warning" style="color:#b00020; display:none; margin-bottom:0.5rem; font-size:0.9rem;"></div>
+          <textarea id="customPuzzleInput" rows="9" style="width: 100%; resize: none; font-size: 20px" placeholder="請輸入 9 行，每行 9 個數字"></textarea>
+        `,
+        buttons: [
+          { text: "取消", onClick: () => {} },
+          { text: "開始遊玩", onClick: () => handleCustomGameStart() }
+        ]
+      });
+
+      function showWarning(msg) {
+        const warn = document.getElementById("custom-warning");
+        if (warn) {
+          warn.textContent = msg;
+          warn.style.display = "block";
+        }
+      }
+
+      function handleCustomGameStart() {
+        const input = document.getElementById("customPuzzleInput").value.trim();
+        const lines = input.split('\n');
+        if (lines.length !== 9) {
+          showWarning("請輸入 9 行數字！");
+          return true;
+        }
+
+        try {
+          const puzzle = lines.map(line => {
+            const row = line.trim().replace(/[\s,]+/, "").split("").map(Number);
+            if (row.length !== 9 || row.some(n => isNaN(n) || n < 0 || n > 9)) {
+              throw new Error();
+            }
+            return row;
+          });
+
+          const solution = solveSudoku(puzzle);
+          if (!solution) {
+            showWarning("無法解出此題，請確認格式正確且有解！");
+            return true;
+          }
+
+          hidePopup();
+          startPuzzle(CUSTOM_MODE, puzzle);
+          return false;
+        } catch {
+          showWarning("格式錯誤，請確認每行都是 9 個 0~9 的數字");
+          return true;
+        }
+      }
+    }
+
+    async function startPuzzle(selectedMode, selectedPuzzle) {
+      mode = selectedMode;
+      if (mode === TODAY_MODE) {
+        const today = new Date().toISOString().split("T")[0]; // e.g., 2025-07-20
+        const seed = seedFromString(today); // 把字串轉成整數種子
+        const rand = mulberry32(seed);
+
+        function mulberry32(a) {
+          return function () {
+            var t = (a += 0x6d2b79f5);
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        function seedFromString(str) {
+          let hash = 0;
+          for (let i = 0; i < str.length; i++) {
+            hash = (hash << 5) - hash + str.charCodeAt(i);
+            hash |= 0; // Convert to 32bit integer
+          }
+          return hash;
+        }
+
+        randomFunc = rand;
+      }
+      else if (mode === FREE_MODE) {
+        randomFunc = Math.random;
+      }
+
+      document.querySelector(".topbar-title")
+        .innerHTML = mode === TODAY_MODE
+          ? "今日數獨 <span style='font-size: 1rem'>Today's Sudoku</span>"
+          : mode === FREE_MODE
+            ? "自由遊玩 <span style='font-size: 1rem'>Free Play</span>"
+            : mode === CUSTOM_MODE
+              ? "自訂遊玩 <span style='font-size: 1rem'>Custom Play</span>"
+              : "";
+
+      goToScene(gameplay);
+      if (mode === CUSTOM_MODE){
+        startNewGame(selectedPuzzle);
+      }
+      else {
+        startNewGame();
+      }
+    }
+
+    function loadSceneImages() {
+      const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
+      const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
+
+      document.getElementById("bg-image").src = bg;
+      document.getElementById("char-image").src = char;
+    }
+
+    function openSettings() {
+      alert("這裡之後會開啟設定頁喔！");
+    }
+
+    async function goToScene(scene){
+      Object.values(allPages).filter(page => page.classList.contains("active"))
+        .forEach(page => page.classList.add("leave"));
+
+      await wait(500);
+
+      for (let pageName in allPages){
+        let page = allPages[pageName];
+        if (pageName !== scene && page !== scene)
+        {
+          page.classList.remove('active');
+          continue;
+        }
+        page.classList.add('active');
+      }
+
+      loadedTabs.clear();
+      Object.values(allPages).filter(page => page.classList.contains("leave"))
+        .forEach(page => page.classList.remove("leave"));
+    }
+
+    function wait(ms) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          console.log("Done waiting");
+          resolve(ms)
+        }, ms)
+      })
+    }
+
     const board = document.getElementById('sudoku-board');
     const noteModeBtn = document.getElementById('noteModeBtn');
     const numberPad = document.getElementById('number-pad');
@@ -457,8 +1254,8 @@
           const existingInBlock = new Set();
 
           for (let i = 0; i < 9; i++) {
-            const rowCell = document.querySelector(`.cell[data-row="${r}"][data-col="${i}"]`);
-            const colCell = document.querySelector(`.cell[data-row="${i}"][data-col="${c}"]`);
+            const rowCell = document.querySelector(`.cell[data-row="${r}"][data-col="${i}"]:not(.error)`);
+            const colCell = document.querySelector(`.cell[data-row="${i}"][data-col="${c}"]:not(.error)`);
             if (rowCell && rowCell.dataset.value) existingInRow.add(+rowCell.dataset.value);
             if (colCell && colCell.dataset.value) existingInCol.add(+colCell.dataset.value);
           }
@@ -467,7 +1264,7 @@
           const startCol = Math.floor(c / 3) * 3;
           for (let dr = 0; dr < 3; dr++) {
             for (let dc = 0; dc < 3; dc++) {
-              const blockCell = document.querySelector(`.cell[data-row="${startRow + dr}"][data-col="${startCol + dc}"]`);
+              const blockCell = document.querySelector(`.cell[data-row="${startRow + dr}"][data-col="${startCol + dc}"]:not(.error)`);
               if (blockCell && blockCell.dataset.value) {
                 existingInBlock.add(+blockCell.dataset.value);
               }
@@ -566,8 +1363,8 @@
       });
 
       return getRegionNoteNumberCount(inRowRegion, number) === 1 ||
-             getRegionNoteNumberCount(inColRegion, number) === 1 ||
-             getRegionNoteNumberCount(inBlockRegion, number) === 1;
+            getRegionNoteNumberCount(inColRegion, number) === 1 ||
+            getRegionNoteNumberCount(inBlockRegion, number) === 1;
     }
 
     function getRegionNoteNumberCount(inRegion, number){
@@ -598,9 +1395,11 @@
       document.querySelectorAll('#number-pad button').forEach(btn => {
         const num = parseInt(btn.dataset.num);
         if (count[num] === 9) {
-          btn.style.backgroundColor = '#c8e6c9'; // 淺綠色
+          btn.style.background = '#c8e6c9'; // 淺綠色
+          btn.style.color = 'black';
         } else {
-          btn.style.backgroundColor = ''; // 還原
+          btn.style.background = ''; // 還原
+          btn.style.color = '';
         }
       });
     }
@@ -617,80 +1416,15 @@
     }
 
     function showWinOverlay() {
-      clearInterval(timerInterval);
-      const overlay = document.getElementById('win-overlay');
-      const timeUsed = timerDisplay.textContent;
-      const errorUsed = errorCount;
-
-      const box = overlay.querySelector('.win-box');
-      box.innerHTML = `
-        🎉 恭喜完成數獨！<br/><br/>
-        ⏱️ 用時：${timeUsed}<br/>
-        ❌ 錯誤次數：${errorUsed}<br/><br/>
-        <button onclick="startNewGame()">🎲 再來一局</button>
-        <button id="closeWinOverlayBtn">❌ 關閉</button>
-      `;
-
-      overlay.style.display = 'flex';
-      launchConfetti();
-
-      // ✅ 綁定關閉事件（因為是動態插入的，必須現在綁）
-      document.getElementById("closeWinOverlayBtn").addEventListener("click", () => {
-        overlay.style.display = "none";
+      saveSudokuResult(mode, puzzle, solution, errorCount, getCurrentTimeDiff());
+      showPopup({
+        title: "恭喜完成！",
+        content: "你成功完成了這個挑戰！",
+        buttons: [
+          { text: "回主頁", onClick: () => { goToScene(main); return false; } },
+        ]
       });
     }
-
-    // 🎊 彩帶粒子動畫
-    function launchConfetti() {
-      const canvas = document.getElementById('confetti');
-      const ctx = canvas.getContext('2d');
-      const W = canvas.width = window.innerWidth;
-      const H = canvas.height = window.innerHeight;
-
-      let particles = Array.from({ length: 150 }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H - H,
-        r: Math.random() * 6 + 4,
-        d: Math.random() * 10 + 10,
-        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-        tilt: Math.random() * 10 - 5,
-        tiltAngle: 0,
-        tiltAngleIncrement: Math.random() * 0.1 + 0.05,
-      }));
-
-      function draw() {
-        ctx.clearRect(0, 0, W, H);
-        for (let p of particles) {
-          ctx.beginPath();
-          ctx.lineWidth = p.r;
-          ctx.strokeStyle = p.color;
-          ctx.moveTo(p.x + p.tilt, p.y);
-          ctx.lineTo(p.x, p.y + p.tilt + p.r);
-          ctx.stroke();
-        }
-
-        update();
-        requestAnimationFrame(draw);
-      }
-
-      function update() {
-        for (let p of particles) {
-          p.tiltAngle += p.tiltAngleIncrement;
-          p.y += (Math.cos(p.d) + 3 + p.r / 2) * 0.6;
-          p.x += Math.sin(p.tiltAngle) * 2;
-          p.tilt = Math.sin(p.tiltAngle) * 15;
-
-          if (p.y > H) {
-            p.y = -10;
-            p.x = Math.random() * W;
-          }
-        }
-      }
-
-      draw();
-    }
-
-    document.getElementById('newGameBtn').addEventListener('click', () => startNewGame());
 
     function generateSudokuSolution() {
       const board = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -707,7 +1441,7 @@
 
       function shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
+          const j = Math.floor(randomFunc() * (i + 1));
           [arr[i], arr[j]] = [arr[j], arr[i]];
         }
         return arr;
@@ -777,8 +1511,8 @@
 
       let attempts = 0;
       while (attempts < 100) {
-        const row = Math.floor(Math.random() * 9);
-        const col = Math.floor(Math.random() * 9);
+        const row = Math.floor(randomFunc() * 9);
+        const col = Math.floor(randomFunc() * 9);
         if (puzzleCopy[row][col] === 0) {
           attempts++;
           continue;
@@ -846,6 +1580,7 @@
         selectedCell.classList.add("error");
         errorCount++;
         errorDisplay.textContent = errorCount;
+        errorDisplay.setAttribute("data-content", errorCount);
       }
 
       updateHighlights();
@@ -868,18 +1603,24 @@
         : generateSudokuPuzzleWithUniqueSolution();
       selectedCell = null;
       initBoard(puzzle, solution);
-      document.getElementById('win-overlay').style.display = 'none';
+
       errorCount = 0;
       errorDisplay.textContent = 0;
+      errorDisplay.setAttribute("data-content", 0);
       timerDisplay.textContent = '00:00';
       startTimer();
+    }
+
+    function getCurrentTimeDiff()
+    {
+      return Math.floor((Date.now() - startTime) / 1000);
     }
 
     function startTimer() {
       startTime = Date.now();
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
-        const diff = Math.floor((Date.now() - startTime) / 1000);
+        const diff = getCurrentTimeDiff();
         const min = String(Math.floor(diff / 60)).padStart(2, '0');
         const sec = String(diff % 60).padStart(2, '0');
         timerDisplay.textContent = `${min}:${sec}`;
@@ -933,44 +1674,246 @@
       return solve(board) ? board : null;
     }
 
-    document.getElementById('customGameBtn').addEventListener('click', () => {
-      const box = document.getElementById('customInputBox');
-      box.style.display = box.style.display === 'none' ? 'block' : 'none';
-    });
+    function saveSudokuResult(mode, puzzle, solution, errors, timeInSeconds) {
+      const solvedAt = Math.floor(Date.now() / 1000); // Unix timestamp
+      const record = { puzzle, solution, errors, time: timeInSeconds, solvedAt };
 
-    document.getElementById('confirmCustomBtn').addEventListener('click', () => {
-      const input = document.getElementById('customPuzzleInput').value.trim();
-      const lines = input.split('\n');
-      if (lines.length !== 9) {
-        alert('請輸入 9 行');
-        return;
+      // 讀取現有資料
+      const raw = localStorage.getItem("sudoku_results");
+      let data = raw ? JSON.parse(raw) : { today: {}, free: [], custom: [] };
+
+      if (mode === TODAY_MODE) {
+        const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        data.today[todayStr] = record;
+      } else if (mode === FREE_MODE) {
+        data.free.push(record);
+      } else if (mode === CUSTOM_MODE) {
+        data.custom.push(record);
       }
 
-      try {
-        const puzzle = lines.map(line => {
-          const row = line.trim().replace(/[\s,]+/, "").split("").map(Number);
-          if (row.length !== 9 || row.some(n => isNaN(n) || n < 0 || n > 9)) {
-            throw new Error();
-          }
-          return row;
-        });
+      localStorage.setItem("sudoku_results", JSON.stringify(data));
+    }
 
-        const solution = solveSudoku(puzzle);
-        if (!solution) {
-          alert("無法解出此題，請確認格式正確且有解");
-          return;
+    function showPopup({ title = "", content = "", buttons = [] }) {
+      const popup = document.getElementById("general-popup");
+      const titleEl = document.getElementById("popup-title");
+      const contentEl = document.getElementById("popup-content");
+      const buttonsEl = document.getElementById("popup-buttons");
+
+      titleEl.textContent = title;
+      contentEl.innerHTML = content;
+
+      buttonsEl.innerHTML = "";
+      buttons.forEach(({ text, onClick }) => {
+        const btn = document.createElement("button");
+        btn.textContent = text;
+        btn.classList.add("fancy-button");
+        btn.onclick = () => {
+          let shouldKeepStay = onClick?.();
+          if (!shouldKeepStay) hidePopup();
+        };
+        buttonsEl.appendChild(btn);
+      });
+
+      popup.style.display = "flex";
+    }
+
+    async function hidePopup() {
+      let generalPopup = document.getElementById("general-popup");
+      generalPopup.classList.add("leave");
+      await wait(500);
+      generalPopup.style.display = "none";
+      generalPopup.classList.remove("leave");
+    }
+
+    async function renderAchievements() {
+      await goToScene(achievements);
+      let tabs = document.getElementsByClassName("tab-btn");
+      tabs[0].click();
+    }
+
+    function formatTime(seconds) {
+      const min = Math.floor(seconds / 60);
+      const sec = seconds % 60;
+      return `${min}:${sec.toString().padStart(2, "0")}`;
+    }
+
+    function formatDate(timestamp) {
+      const d = new Date(timestamp * 1000);
+      return d.toISOString().split("T")[0];
+    }
+
+    function loadStatisticsPage() {
+      const stats = computeStatisticsFromStorage();
+      document.getElementById("stat-total").textContent = stats.total;
+      document.getElementById("stat-perfect").textContent = stats.perfect;
+      document.getElementById("stat-min-time").textContent = formatTime(stats.minTime);
+      document.getElementById("stat-max-time").textContent = formatTime(stats.maxTime);
+      document.getElementById("stat-avg-time").textContent = formatTime(stats.avgTime);
+      document.getElementById("stat-min-errors").textContent = stats.minErrors;
+      document.getElementById("stat-max-errors").textContent = stats.maxErrors;
+      document.getElementById("stat-avg-errors").textContent = stats.avgErrors;
+    }
+
+    function computeStatisticsFromStorage() {
+      const raw = localStorage.getItem("sudoku_results");
+      const data = JSON.parse(raw);
+      const allRecords = [];
+
+      if (data && data.today) {
+        Object.values(data.today).forEach(r => allRecords.push(r));
+      }
+
+      ["free", "custom"].forEach(mode => {
+        if (data && Array.isArray(data[mode])) {
+          allRecords.push(...data[mode]);
         }
+      });
 
-        document.getElementById('customInputBox').style.display = 'none';
-        startNewGame(puzzle);
-      } catch {
-        alert('格式錯誤，請確認每行都是 9 個 0~9 的數字');
-      }
+      const total = allRecords.length;
+      const perfect = allRecords.filter(r => r.errors === 0).length;
+      const times = allRecords.map(r => r.time);
+      const errors = allRecords.map(r => r.errors);
+
+      const minTime = times.length === 0
+        ? 0
+        : Math.min(...times);
+      const maxTime = times.length === 0
+        ? 0
+        : Math.max(...times);
+      const avgTime = times.length === 0
+        ? 0
+        : Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+
+      const minErrors = errors.length === 0
+        ? 0
+        : Math.min(...errors);
+      const maxErrors = errors.length === 0
+        ? 0
+        : Math.max(...errors);
+      const avgErrors = errors.length === 0
+        ? 0
+        : (errors.reduce((a, b) => a + b, 0) / errors.length).toFixed(2);
+
+      return {
+        total,
+        perfect,
+        minTime,
+        maxTime,
+        avgTime,
+        minErrors,
+        maxErrors,
+        avgErrors,
+      };
+    }
+
+    const loadedTabs = new Set();
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        // 切換 active 樣式
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        // 切換顯示區塊
+        const target = btn.dataset.tab;
+        document.querySelectorAll(".achievement-section").forEach(sec => {
+          sec.style.display = "none";
+        });
+        document.getElementById(`${target}-section`).style.display = "block";
+
+        // 根據 tab 載入內容
+        if (target === "stats") {
+          loadStatisticsPage(); // 原有統計邏輯
+        } else if (!loadedTabs.has(target)) {
+          renderAchievementTab(target); // 新增懶加載成就
+          loadedTabs.add(target);
+        }
+      });
     });
 
+    document.querySelectorAll(".achievement-section").forEach((sec, idx) => {
+      sec.style.display = idx === 0 ? "block" : "none";
+    });
 
-    startNewGame();
+    function createAchievementItem(record, mode, recordTodayDate) {
+      const container = document.createElement("div");
+      container.className = "record-item";
 
+      // 1. Mini Sudoku Grid
+      const grid = document.createElement("div");
+      grid.className = "mini-sudoku";
+
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          const cell = document.createElement("div");
+          const val = record.puzzle[row][col];
+          if (val !== 0) {
+            cell.textContent = val;
+            cell.style.color = "#000";
+          } else {
+            cell.textContent = record.solution[row][col];
+            cell.style.color = "#2196f3"
+          }
+          grid.appendChild(cell);
+        }
+      }
+
+      // 2. Right Side Info
+      const info = document.createElement("div");
+      info.className = "info";
+
+      const date = mode === "today"
+        ? new Date(recordTodayDate)
+        : new Date(record.solvedAt * 1000);
+      const dateStr = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+
+      const timeStr = `<i class="ph ph-timer"></i> 時間：${Math.floor(+record.time / 60)}:${(+record.time % 60)
+        .toString()
+        .padStart(2, "0")}`;
+      const errorStr = `<i class="ph ph-x-circle"></i> 錯誤：${record.errors}`;
+      const solvedAtStr = `<i class="ph ph-flag-checkered"></i> 完成於 ${date.toLocaleString("zh-TW")}`;
+
+      const titleEl = document.createElement("div");
+      titleEl.className = "title";
+      titleEl.innerHTML = dateStr;
+
+      const timeEl = document.createElement("div");
+      timeEl.innerHTML = timeStr;
+
+      const errorEl = document.createElement("div");
+      errorEl.innerHTML = errorStr;
+
+      const solvedAtEl = document.createElement("div");
+      solvedAtEl.innerHTML = solvedAtStr;
+
+      const replayBtn = document.createElement("button");
+      replayBtn.className = "fancy-button";
+      replayBtn.textContent = "重新遊玩";
+      replayBtn.onclick = () => {
+        startPuzzle(CUSTOM_MODE, record.puzzle);
+      };
+
+      info.append(titleEl, timeEl, errorEl, solvedAtEl, replayBtn);
+
+      container.append(grid, info);
+      return container;
+    }
+
+    function renderAchievementTab(tabName) {
+      const data = JSON.parse(localStorage.getItem("sudoku_results") || "{}");
+      let listEl = document.getElementById(`${tabName}-list`);
+      listEl.innerHTML = ""; // 保險清空一下
+
+      if (tabName === "today") {
+        for (const [date, record] of Object.entries(data.today || {})) {
+          listEl.appendChild(createAchievementItem(record, "today", date));
+        }
+      } else {
+        for (const record of (data[tabName] || [])) {
+          listEl.appendChild(createAchievementItem(record, tabName));
+        }
+      }
+    }
   </script>
 </body>
 </html>

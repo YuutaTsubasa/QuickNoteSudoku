@@ -1,0 +1,976 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>快速筆記數獨</title>
+  <style>
+    @font-face {
+      font-family: 'Noto Sans TC';
+      src: url('./fonts/NotoSansTC-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Noto Sans TC';
+      src: url('./fonts/NotoSansTC-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: bold;
+    }
+
+    @font-face {
+      font-family: 'Source Code Pro';
+      src: url('./fonts/SourceCodePro-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Source Code Pro';
+      src: url('./fonts/SourceCodePro-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: bold;
+    }
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    #controls {
+      margin-bottom: 1rem;
+    }
+
+    #sudoku-board {
+      display: grid;
+      width: 90vw;  /* 或 max-width: 540px 可防止太大 */
+      max-width: 540px;
+      aspect-ratio: 1 / 1;
+      grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(9, 1fr);
+      gap: 2px;
+    }
+
+    .cell {
+      position: relative;
+      border: 1px solid #aaa;
+      background-color: #fff;
+      text-align: center;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+
+    .cell.filled {
+      background-color: #d0f0ff;
+      font-weight: bold;
+    }
+
+    .notes {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      font-size: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      color: #555;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .notes div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #number-pad {
+      margin-top: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    #number-pad button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      font-size: 18px;
+      padding: 0;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+    }
+
+    #noteModeBtn.active {
+      background-color: #fce4ec;
+      border-color: #f06292;
+    }
+
+    .cell.selected {
+      outline: 2px solid #2196f3;
+      z-index: 2;
+    }
+
+    .cell .value {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 45px;
+      font-weight: bold;
+      color: #000;
+      z-index: 2;
+    }
+
+    .cell .value.locked {
+      color: black;
+    }
+
+    .cell .value.user {
+      color: #2196f3;
+    }
+
+    .cell.error, .cell.error .value.user{
+      border: 2px solid red !important;
+      color: red !important;
+    }
+
+    .cell.row-0,
+    .cell.row-3,
+    .cell.row-6 { border-top: 2px solid #000; }
+
+    .cell.col-0,
+    .cell.col-3,
+    .cell.col-6 { border-left: 2px solid #000; }
+
+    .cell.row-8 { border-bottom: 2px solid #000; }
+    .cell.col-8 { border-right: 2px solid #000; }
+
+    .cell.highlight {
+      background-color: #fff59d !important; /* 明亮黃色 */
+      animation: flash 0.4s ease-in-out;
+    }
+
+    .cell.highlight.selected {
+      background-color: #fff000 !important;
+    }
+
+    @keyframes flash {
+      0%, 100% { background-color: #fff59d; }
+      50% { background-color: #ffee58; }
+    }
+
+    #win-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .win-box {
+      background: white;
+      padding: 2rem 3rem;
+      font-size: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.25);
+    }
+
+    #win-overlay .win-box button {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      background-color: #2196f3;
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+
+    #confetti {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    #status-bar {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .value,
+    .notes div {
+      font-family: 'Source Code Pro', monospace;
+    }
+
+    .notes div[style*="font-weight: bold"] {
+      font-size: 16px;
+      color: black;
+    }
+
+    .cell.note-mode {
+      background-color: #e0f7e9 !important;
+    }
+
+    .notes .single {
+      color: #2196f3 !important;  /* 藍色字 */
+      font-weight: bold;
+    }
+
+    .notes .unique-note {
+      color: #2196f3 !important;
+      font-weight: bold;
+    }
+
+    #customInputBox textarea {
+      font-family: 'Source Code Pro', monospace;
+      padding: 8px;
+      font-size: 1rem;
+      resize: vertical;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
+
+      #number-pad button {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+      }
+
+      .cell .value {
+        font-size: calc(5vw + 10px);
+      }
+
+      .notes {
+        font-size: calc(2.5vw);
+        line-height: 2vw;
+      }
+
+      .notes div[style*="font-weight: bold"] {
+        font-size: calc(2.5vw + 2px);
+        color: black;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>快速筆記數獨</h1>
+  <div id="controls">
+    <button id="noteModeBtn">📒 筆記模式</button>
+    <button id="fillNotesBtn">🔁 智慧提示筆記</button>
+    <button id="newGameBtn">🎲 新局</button>
+    <button id="customGameBtn">✏️ 自訂新局</button>
+    <div id="customInputBox" style="display: none; margin-top: 1rem;">
+      <textarea id="customPuzzleInput" rows="10" cols="30" placeholder="請輸入 9 行，每行 9 個數字，可以空格、逗號隔開或不隔開"></textarea><br>
+      <button id="confirmCustomBtn">✅ 確定</button>
+    </div>
+  </div>
+  <div id="status-bar">
+    ⏱️ 時間：<span id="timer">00:00</span>　
+    ❌ 錯誤次數：<span id="errors">0</span>
+  </div>
+  <div id="sudoku-board"></div>
+  <div id="number-pad">
+    <!-- 1~9 按鈕 -->
+    <button data-num="1">1</button>
+    <button data-num="2">2</button>
+    <button data-num="3">3</button>
+    <button data-num="4">4</button>
+    <button data-num="5">5</button>
+    <button data-num="6">6</button>
+    <button data-num="7">7</button>
+    <button data-num="8">8</button>
+    <button data-num="9">9</button>
+  </div>
+  <div id="win-overlay">
+    <div class="win-box">
+    </div>
+    <canvas id="confetti"></canvas>
+  </div>
+
+  <script>
+    const board = document.getElementById('sudoku-board');
+    const noteModeBtn = document.getElementById('noteModeBtn');
+    const numberPad = document.getElementById('number-pad');
+
+    let isNoteMode = false;
+    let selectedCell = null;
+
+    let puzzle = [];
+    let solution = [];
+
+    let errorCount = 0;
+    let startTime = null;
+    let timerInterval = null;
+
+    const timerDisplay = document.getElementById('timer');
+    const errorDisplay = document.getElementById('errors');
+
+    function createCell(row, col, value) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.classList.add(`row-${row}`, `col-${col}`);
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+
+      if (value > 0) {
+        cell.innerHTML = `<div class="value locked">${value}</div>`;
+        cell.dataset.value = value;
+        cell.classList.add("filled", "locked");
+      } else {
+        cell.dataset.value = '';
+      }
+
+      board.appendChild(cell);
+
+      cell.addEventListener('click', () => {
+        if (selectedCell) selectedCell.classList.remove('selected');
+        selectedCell = cell;
+        cell.classList.add('selected');
+
+        // 新增：點選已填格也觸發筆記清除
+        if (cell.classList.contains("filled")) {
+          const value = parseInt(cell.dataset.value);
+          if (!isNaN(value)) {
+            removeNotesAround(cell, value);
+          }
+        }
+
+        updateHighlights();
+      });
+    }
+
+    function initBoard(selectedPuzzle, selectedSolution) {
+      puzzle = selectedPuzzle;
+      solution = selectedSolution;
+
+      board.innerHTML = '';
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          createCell(r, c, puzzle[r][c]);
+        }
+      }
+
+      updateHighlights(); // 初始化時同步更新高亮與筆記黑體
+    }
+
+    function enableNotes(cell) {
+      if (!cell.querySelector('.notes')) {
+        const notes = document.createElement('div');
+        notes.className = 'notes';
+        for (let i = 1; i <= 9; i++) {
+          const note = document.createElement('div');
+          note.textContent = '';
+          notes.appendChild(note);
+        }
+        cell.appendChild(notes);
+      }
+    }
+
+    function toggleNote(cell, number) {
+      enableNotes(cell);
+      const notes = cell.querySelector('.notes');
+      const index = number - 1;
+      const current = notes.children[index].textContent;
+      notes.children[index].textContent = current === '' ? number : '';
+    }
+
+    function removeNotesAround(cell, number) {
+      const r = parseInt(cell.dataset.row);
+      const c = parseInt(cell.dataset.col);
+      document.querySelectorAll('.cell').forEach(other => {
+        const or = parseInt(other.dataset.row);
+        const oc = parseInt(other.dataset.col);
+        const inSameRow = or === r;
+        const inSameCol = oc === c;
+        const inSameBlock =
+          Math.floor(or / 3) === Math.floor(r / 3) &&
+          Math.floor(oc / 3) === Math.floor(c / 3);
+
+        if ((inSameRow || inSameCol || inSameBlock) && 
+            (!other.dataset.value || other.classList.contains("error"))) {
+          const notes = other.querySelector('.notes');
+          if (notes) {
+            [...notes.children].forEach(n => {
+              if (n.textContent == number) n.textContent = '';
+            });
+          }
+        }
+      });
+    }
+
+    numberPad.addEventListener('click', e => {
+      const num = parseInt(e.target.dataset.num);
+      if (!num || !selectedCell) return;
+      handleNumberInput(num);
+    });
+
+    document.addEventListener('keydown', e => {
+      if (!selectedCell) return;
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 9) {
+        handleNumberInput(num);
+      }
+    });
+
+    noteModeBtn.addEventListener('click', () => {
+      isNoteMode = !isNoteMode;
+      noteModeBtn.classList.toggle('active', isNoteMode);
+      updateHighlights();
+    });
+
+    function fillAllNotes() {
+      document.querySelectorAll('.cell').forEach(cell => {
+        if (!cell.dataset.value || cell.dataset.value === '' || cell.classList.contains("error")) {
+          const r = parseInt(cell.dataset.row);
+          const c = parseInt(cell.dataset.col);
+
+          const existingInRow = new Set();
+          const existingInCol = new Set();
+          const existingInBlock = new Set();
+
+          for (let i = 0; i < 9; i++) {
+            const rowCell = document.querySelector(`.cell[data-row="${r}"][data-col="${i}"]`);
+            const colCell = document.querySelector(`.cell[data-row="${i}"][data-col="${c}"]`);
+            if (rowCell && rowCell.dataset.value) existingInRow.add(+rowCell.dataset.value);
+            if (colCell && colCell.dataset.value) existingInCol.add(+colCell.dataset.value);
+          }
+
+          const startRow = Math.floor(r / 3) * 3;
+          const startCol = Math.floor(c / 3) * 3;
+          for (let dr = 0; dr < 3; dr++) {
+            for (let dc = 0; dc < 3; dc++) {
+              const blockCell = document.querySelector(`.cell[data-row="${startRow + dr}"][data-col="${startCol + dc}"]`);
+              if (blockCell && blockCell.dataset.value) {
+                existingInBlock.add(+blockCell.dataset.value);
+              }
+            }
+          }
+
+          const allowed = [];
+          for (let num = 1; num <= 9; num++) {
+            if (!existingInRow.has(num) && !existingInCol.has(num) && !existingInBlock.has(num)) {
+              allowed.push(num);
+            }
+          }
+
+          // 填入筆記
+          if (!cell.querySelector('.notes')) {
+            const notes = document.createElement('div');
+            notes.className = 'notes';
+            for (let i = 1; i <= 9; i++) {
+              const note = document.createElement('div');
+              note.textContent = allowed.includes(i) ? i : '';
+              notes.appendChild(note);
+            }
+            cell.appendChild(notes);
+          } else {
+            const notes = cell.querySelector('.notes');
+            for (let i = 1; i <= 9; i++) {
+              notes.children[i - 1].textContent = allowed.includes(i) ? i : '';
+            }
+          }
+        }
+      });
+    }
+
+    function updateHighlights() {
+      // 先清除所有 highlight 和 notes 粗體
+      document.querySelectorAll('.cell').forEach(cell => {
+        cell.classList.remove('highlight', 'note-mode');
+        if (isNoteMode && !cell.classList.contains('filled')) {
+          cell.classList.add('note-mode');
+        }
+        const notes = cell.querySelector('.notes');
+        if (notes) {
+          [...notes.children].forEach(note => {
+            note.style.fontWeight = '';
+            note.classList.remove("unique-note");
+          });
+        }
+        updateSingleNoteStyle(cell);
+      });
+      updateNumberPad();
+
+      if (!selectedCell) return;
+
+      const selectedValue = selectedCell.dataset.value;
+      if (selectedValue) {
+        document.querySelectorAll('.cell').forEach(cell => {
+          if (cell.dataset.value === selectedValue) {
+            cell.classList.add('highlight');
+          }
+          const notes = cell.querySelector('.notes');
+          if (notes) {
+            const r = parseInt(cell.dataset.row);
+            const c = parseInt(cell.dataset.col);
+            [...notes.children].forEach(note => {
+              if (note.textContent === selectedValue) {
+                note.style.fontWeight = 'bold';
+                const isUnique = isNoteUniqueInRegion(r, c, parseInt(note.textContent));
+                if (isUnique) {
+                  note.classList.add("unique-note");
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+
+    function isNoteUniqueInRegion(row, col, number) {
+      const inRowRegion = [];
+      const inColRegion = [];
+      const inBlockRegion = [];
+
+      document.querySelectorAll('.cell').forEach(cell => {
+        const r = parseInt(cell.dataset.row);
+        const c = parseInt(cell.dataset.col);
+
+        const inSameRow = r === row;
+        const inSameCol = c === col;
+        const inSameBlock =
+          Math.floor(r / 3) === Math.floor(row / 3) &&
+          Math.floor(c / 3) === Math.floor(col / 3);
+
+        if (inSameRow) inRowRegion.push(cell);
+        if (inSameCol) inColRegion.push(cell);
+        if (inSameBlock) inBlockRegion.push(cell);
+      });
+
+      return getRegionNoteNumberCount(inRowRegion, number) === 1 ||
+             getRegionNoteNumberCount(inColRegion, number) === 1 ||
+             getRegionNoteNumberCount(inBlockRegion, number) === 1;
+    }
+
+    function getRegionNoteNumberCount(inRegion, number){
+      let count = 0;
+      inRegion.forEach(cell => {
+        const notes = cell.querySelector('.notes');
+        if (notes && notes.children[number - 1].textContent === number.toString()) {
+          count++;
+        }
+      });
+
+      return count;
+    }
+
+    const fillNotesBtn = document.getElementById('fillNotesBtn');
+    fillNotesBtn.addEventListener('click', () => {
+      fillAllNotes();
+      updateHighlights();
+    });
+
+    function updateNumberPad() {
+      const count = Array(10).fill(0);
+      document.querySelectorAll('.cell').forEach(cell => {
+        const val = parseInt(cell.dataset.value);
+        if (val >= 1 && val <= 9) count[val]++;
+      });
+
+      document.querySelectorAll('#number-pad button').forEach(btn => {
+        const num = parseInt(btn.dataset.num);
+        if (count[num] === 9) {
+          btn.style.backgroundColor = '#c8e6c9'; // 淺綠色
+        } else {
+          btn.style.backgroundColor = ''; // 還原
+        }
+      });
+    }
+
+    function checkWin() {
+      const allCells = document.querySelectorAll('.cell');
+      for (const cell of allCells) {
+        if (!cell.dataset.value || cell.classList.contains('error')) {
+          return false;
+        }
+      }
+      setTimeout(showWinOverlay, 100);
+      return true;
+    }
+
+    function showWinOverlay() {
+      clearInterval(timerInterval);
+      const overlay = document.getElementById('win-overlay');
+      const timeUsed = timerDisplay.textContent;
+      const errorUsed = errorCount;
+
+      const box = overlay.querySelector('.win-box');
+      box.innerHTML = `
+        🎉 恭喜完成數獨！<br/><br/>
+        ⏱️ 用時：${timeUsed}<br/>
+        ❌ 錯誤次數：${errorUsed}<br/><br/>
+        <button onclick="startNewGame()">🎲 再來一局</button>
+        <button id="closeWinOverlayBtn">❌ 關閉</button>
+      `;
+
+      overlay.style.display = 'flex';
+      launchConfetti();
+
+      // ✅ 綁定關閉事件（因為是動態插入的，必須現在綁）
+      document.getElementById("closeWinOverlayBtn").addEventListener("click", () => {
+        overlay.style.display = "none";
+      });
+    }
+
+    // 🎊 彩帶粒子動畫
+    function launchConfetti() {
+      const canvas = document.getElementById('confetti');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width = window.innerWidth;
+      const H = canvas.height = window.innerHeight;
+
+      let particles = Array.from({ length: 150 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H - H,
+        r: Math.random() * 6 + 4,
+        d: Math.random() * 10 + 10,
+        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+        tilt: Math.random() * 10 - 5,
+        tiltAngle: 0,
+        tiltAngleIncrement: Math.random() * 0.1 + 0.05,
+      }));
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        for (let p of particles) {
+          ctx.beginPath();
+          ctx.lineWidth = p.r;
+          ctx.strokeStyle = p.color;
+          ctx.moveTo(p.x + p.tilt, p.y);
+          ctx.lineTo(p.x, p.y + p.tilt + p.r);
+          ctx.stroke();
+        }
+
+        update();
+        requestAnimationFrame(draw);
+      }
+
+      function update() {
+        for (let p of particles) {
+          p.tiltAngle += p.tiltAngleIncrement;
+          p.y += (Math.cos(p.d) + 3 + p.r / 2) * 0.6;
+          p.x += Math.sin(p.tiltAngle) * 2;
+          p.tilt = Math.sin(p.tiltAngle) * 15;
+
+          if (p.y > H) {
+            p.y = -10;
+            p.x = Math.random() * W;
+          }
+        }
+      }
+
+      draw();
+    }
+
+    document.getElementById('newGameBtn').addEventListener('click', () => startNewGame());
+
+    function generateSudokuSolution() {
+      const board = Array.from({ length: 9 }, () => Array(9).fill(0));
+
+      function isValid(board, row, col, num) {
+        for (let i = 0; i < 9; i++) {
+          if (board[row][i] === num || board[i][col] === num) return false;
+          const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+          const boxCol = 3 * Math.floor(col / 3) + i % 3;
+          if (board[boxRow][boxCol] === num) return false;
+        }
+        return true;
+      }
+
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      function fillBoard(row = 0, col = 0) {
+        if (row === 9) return true;
+        const [nextRow, nextCol] = col === 8 ? [row + 1, 0] : [row, col + 1];
+
+        const numbers = shuffle([...Array(9).keys()].map(n => n + 1));
+        for (let num of numbers) {
+          if (isValid(board, row, col, num)) {
+            board[row][col] = num;
+            if (fillBoard(nextRow, nextCol)) return true;
+            board[row][col] = 0;
+          }
+        }
+        return false;
+      }
+
+      fillBoard();
+      const solution = board.map(row => [...row]);
+      return solution;
+    }
+
+    function hasUniqueSolution(puzzle) {
+      let count = 0;
+
+      function isValid(board, row, col, num) {
+        for (let i = 0; i < 9; i++) {
+          if (board[row][i] === num || board[i][col] === num) return false;
+          const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+          const boxCol = 3 * Math.floor(col / 3) + i % 3;
+          if (board[boxRow][boxCol] === num) return false;
+        }
+        return true;
+      }
+
+      function solve(board, row = 0, col = 0) {
+        if (row === 9) {
+          count++;
+          return count < 2; // 如果找到兩個以上就停止
+        }
+        const [nextRow, nextCol] = col === 8 ? [row + 1, 0] : [row, col + 1];
+        if (board[row][col] !== 0) return solve(board, nextRow, nextCol);
+
+        for (let num = 1; num <= 9; num++) {
+          if (isValid(board, row, col, num)) {
+            board[row][col] = num;
+            if (!solve(board, nextRow, nextCol)) {
+              board[row][col] = 0;
+              return false;
+            }
+            board[row][col] = 0;
+          }
+        }
+        return true;
+      }
+
+      const boardCopy = puzzle.map(row => [...row]);
+      solve(boardCopy);
+      return count === 1;
+    }
+
+    function digHoles(puzzle, solution) {
+      const puzzleCopy = puzzle.map(row => [...row]);
+
+      let attempts = 0;
+      while (attempts < 100) {
+        const row = Math.floor(Math.random() * 9);
+        const col = Math.floor(Math.random() * 9);
+        if (puzzleCopy[row][col] === 0) {
+          attempts++;
+          continue;
+        }
+
+        const backup = puzzleCopy[row][col];
+        puzzleCopy[row][col] = 0;
+
+        if (!hasUniqueSolution(puzzleCopy)) {
+          puzzleCopy[row][col] = backup;
+        }
+
+        attempts++;
+      }
+
+      return puzzleCopy;
+    }
+
+    function generateSudokuPuzzleWithUniqueSolution() {
+      const full = generateSudokuSolution(); // 產出完整填滿盤面
+      const puzzle = digHoles(full, full); // 拿掉 40 格，保證唯一解
+      return {
+        puzzle,
+        solution: full,
+      };
+    }
+
+    function handleNumberInput(num) {
+      if (!selectedCell || selectedCell.classList.contains('filled')) return;
+
+      if (isNoteMode) {
+        if (selectedCell.classList.contains('locked')) return;
+        toggleNote(selectedCell, num);
+
+        let valueDiv = selectedCell.querySelector('.value');
+        if (valueDiv) {
+          valueDiv.textContent = '';
+          selectedCell.dataset.value = null;
+        }
+        return;
+      }
+
+      const r = parseInt(selectedCell.dataset.row);
+      const c = parseInt(selectedCell.dataset.col);
+      const correct = solution[r][c];
+
+      let valueDiv = selectedCell.querySelector('.value');
+      if (!valueDiv) {
+        valueDiv = document.createElement('div');
+        valueDiv.className = 'value user';
+        selectedCell.appendChild(valueDiv);
+      } else {
+        valueDiv.classList.add('user');
+      }
+      valueDiv.textContent = num;
+      selectedCell.dataset.value = num;
+
+      if (num === correct) {
+        selectedCell.classList.add("filled");
+        selectedCell.classList.remove("error");
+        removeNotesAround(selectedCell, num);
+        const notes = selectedCell.querySelector('.notes');
+        if (notes) selectedCell.removeChild(notes);
+      } else {
+        selectedCell.classList.add("error");
+        errorCount++;
+        errorDisplay.textContent = errorCount;
+      }
+
+      updateHighlights();
+      checkWin();
+    }
+
+    function updateSingleNoteStyle(cell) {
+      const notes = cell.querySelector('.notes');
+      if (!notes) return;
+      const filled = Array.from(notes.children).filter(n => n.textContent !== '');
+      notes.querySelectorAll('div').forEach(div => div.classList.remove('single'));
+      if (filled.length === 1) {
+        filled[0].classList.add('single');
+      }
+    }
+
+    function startNewGame(specifiedPuzzle){
+      const { puzzle, solution } = specifiedPuzzle 
+        ? { puzzle: specifiedPuzzle, solution: solveSudoku(specifiedPuzzle) }
+        : generateSudokuPuzzleWithUniqueSolution();
+      selectedCell = null;
+      initBoard(puzzle, solution);
+      document.getElementById('win-overlay').style.display = 'none';
+      errorCount = 0;
+      errorDisplay.textContent = 0;
+      timerDisplay.textContent = '00:00';
+      startTimer();
+    }
+
+    function startTimer() {
+      startTime = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const diff = Math.floor((Date.now() - startTime) / 1000);
+        const min = String(Math.floor(diff / 60)).padStart(2, '0');
+        const sec = String(diff % 60).padStart(2, '0');
+        timerDisplay.textContent = `${min}:${sec}`;
+      }, 1000);
+    }
+
+    function solveSudoku(input) {
+      const board = input.map(row => [...row]); // 深拷貝
+
+      function findEmpty(board) {
+        for (let r = 0; r < 9; r++) {
+          for (let c = 0; c < 9; c++) {
+            if (board[r][c] === 0) return [r, c];
+          }
+        }
+        return null;
+      }
+
+      function isValid(board, num, row, col) {
+        for (let i = 0; i < 9; i++) {
+          if (board[row][i] === num || board[i][col] === num) return false;
+        }
+
+        const boxRow = Math.floor(row / 3) * 3;
+        const boxCol = Math.floor(col / 3) * 3;
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) {
+            if (board[boxRow + i][boxCol + j] === num) return false;
+          }
+        }
+
+        return true;
+      }
+
+      function solve(board) {
+        const pos = findEmpty(board);
+        if (!pos) return true;
+
+        const [row, col] = pos;
+        for (let num = 1; num <= 9; num++) {
+          if (isValid(board, num, row, col)) {
+            board[row][col] = num;
+            if (solve(board)) return true;
+            board[row][col] = 0;
+          }
+        }
+
+        return false;
+      }
+
+      return solve(board) ? board : null;
+    }
+
+    document.getElementById('customGameBtn').addEventListener('click', () => {
+      const box = document.getElementById('customInputBox');
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('confirmCustomBtn').addEventListener('click', () => {
+      const input = document.getElementById('customPuzzleInput').value.trim();
+      const lines = input.split('\n');
+      if (lines.length !== 9) {
+        alert('請輸入 9 行');
+        return;
+      }
+
+      try {
+        const puzzle = lines.map(line => {
+          const row = line.trim().replace(/[\s,]+/, "").split("").map(Number);
+          if (row.length !== 9 || row.some(n => isNaN(n) || n < 0 || n > 9)) {
+            throw new Error();
+          }
+          return row;
+        });
+
+        const solution = solveSudoku(puzzle);
+        if (!solution) {
+          alert("無法解出此題，請確認格式正確且有解");
+          return;
+        }
+
+        document.getElementById('customInputBox').style.display = 'none';
+        startNewGame(puzzle);
+      } catch {
+        alert('格式錯誤，請確認每行都是 9 個 0~9 的數字');
+      }
+    });
+
+
+    startNewGame();
+
+  </script>
+</body>
+</html>
