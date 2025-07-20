@@ -261,6 +261,10 @@
       color: black;
     }
 
+    .fancy-button.checked {
+      background: linear-gradient(145deg, #01a532, #016d2e);
+    }
+
     .fancy-button:hover, .fancy-button.active:hover {
       background-image: repeating-linear-gradient(
         45deg,
@@ -828,7 +832,7 @@
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
       <div class="button-area has-grid">
-        <button class="fancy-button" onclick="startPuzzle(TODAY_MODE)">今日數獨</button>
+        <button id="today-button" class="fancy-button" onclick="startPuzzle(TODAY_MODE)">今日數獨</button>
         <button class="fancy-button" onclick="startPuzzle(FREE_MODE)">自由遊玩</button>
         <button class="fancy-button" onclick="showCustomPopup()">自訂遊玩</button>
         <button class="fancy-button" onclick="renderAchievements()">成就</button>
@@ -971,15 +975,33 @@
       }
     }
 
-
     let randomFunc = Math.random;
-    let mode;
+    let mode, cachedToday;
 
     window.addEventListener('DOMContentLoaded', async () => {
       loadSceneImages();
       await runSplashScene();
       goToScene(main);
+
+      setInterval(() => {
+        updateTodayButton();
+      }, 1000);
     });
+
+    function updateTodayButton(){
+      const todayButton = main.querySelector("#today-button");
+      const todayStr = getToday();
+      const isTodaySolved = loadSaveData().today[todayStr];
+
+      todayButton.innerHTML = `今日數獨 <small>${todayStr}</small>`;
+      if (isTodaySolved &&
+          !todayButton.classList.contains("checked")){
+        todayButton.classList.add("checked");
+      } else if (!isTodaySolved &&
+          todayButton.classList.contains("checked")) {
+        todayButton.classList.remove("checked");
+      }
+    }
 
     async function runSplashScene(){
       await wait(1500);
@@ -1042,11 +1064,33 @@
       }
     }
 
+    function toLocalISOString(date) {
+      const tzOffset = date.getTimezoneOffset() * 60000; // Offset in milliseconds
+      const localTime = new Date(date.getTime() - tzOffset);
+      return localTime.toISOString().slice(0, -1); // Remove the 'Z' at the end
+    }
+
+    function getToday(){
+      return toLocalISOString(new Date()).split("T")[0];
+    }
+
     async function startPuzzle(selectedMode, selectedPuzzle) {
       mode = selectedMode;
       if (mode === TODAY_MODE) {
-        const today = new Date().toISOString().split("T")[0]; // e.g., 2025-07-20
-        const seed = seedFromString(today); // 把字串轉成整數種子
+        cachedToday = getToday(); // e.g., 2025-07-20
+        if (loadSaveData().today[cachedToday]){
+          showPopup({
+            title: "今日數獨",
+            content: "今日數獨已解完，明日再來玩吧！",
+            buttons: [{
+              text: "確認",
+              onClick: () => false
+            }]
+          });
+          return;
+        }
+
+        const seed = seedFromString(cachedToday); // 把字串轉成整數種子
         const rand = mulberry32(seed);
 
         function mulberry32(a) {
@@ -1698,17 +1742,19 @@
       return solve(board) ? board : null;
     }
 
+    function loadSaveData()
+    {
+      const raw = localStorage.getItem("sudoku_results");
+      return raw ? JSON.parse(raw) : { today: {}, free: [], custom: [] };
+    }
+
     function saveSudokuResult(mode, puzzle, solution, errors, timeInSeconds) {
       const solvedAt = Math.floor(Date.now() / 1000); // Unix timestamp
       const record = { puzzle, solution, errors, time: timeInSeconds, solvedAt };
 
-      // 讀取現有資料
-      const raw = localStorage.getItem("sudoku_results");
-      let data = raw ? JSON.parse(raw) : { today: {}, free: [], custom: [] };
-
+      let data = loadSaveData();
       if (mode === TODAY_MODE) {
-        const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        data.today[todayStr] = record;
+        data.today[cachedToday] = record;
       } else if (mode === FREE_MODE) {
         data.free.push(record);
       } else if (mode === CUSTOM_MODE) {
@@ -1780,8 +1826,7 @@
     }
 
     function computeStatisticsFromStorage() {
-      const raw = localStorage.getItem("sudoku_results");
-      const data = JSON.parse(raw);
+      const data = loadSaveData();
       const allRecords = [];
 
       if (data && data.today) {
@@ -1924,16 +1969,16 @@
     }
 
     function renderAchievementTab(tabName) {
-      const data = JSON.parse(localStorage.getItem("sudoku_results") || "{}");
+      const data = loadSaveData();
       let listEl = document.getElementById(`${tabName}-list`);
       listEl.innerHTML = ""; // 保險清空一下
 
       if (tabName === "today") {
-        for (const [date, record] of Object.entries(data.today || {})) {
+        for (const [date, record] of Object.entries(data.today || {}).reverse()) {
           listEl.appendChild(createAchievementItem(record, "today", date));
         }
       } else {
-        for (const record of (data[tabName] || [])) {
+        for (const record of (data[tabName] || []).reverse()) {
           listEl.appendChild(createAchievementItem(record, tabName));
         }
       }
