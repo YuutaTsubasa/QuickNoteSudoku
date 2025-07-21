@@ -60,7 +60,6 @@
       height: 100%;
       background-color: #1e293b; /* slate-900 */
       overflow-x: hidden;
-      user-select: none;
     }
 
     .screen {
@@ -139,7 +138,7 @@
 
       background: linear-gradient(to top, #e0e0e0 0%, #ffffff 30%, #ffffff 100%);
       width: 100%;
-      height: 100%;
+      padding-bottom: 10px;
     }
 
     /* 主容器 */
@@ -265,7 +264,9 @@
       background: linear-gradient(145deg, #01a532, #016d2e);
     }
 
-    .fancy-button:hover, .fancy-button.active:hover {
+    .fancy-button:hover, .fancy-button.active:hover,
+    .fancy-button#removeAllNotesBtn:hover,
+    .fancy-button#pauseBtn:hover  {
       background-image: repeating-linear-gradient(
         45deg,
         rgba(255, 255, 255, 1.0) 0px,
@@ -276,7 +277,9 @@
       color: black;
     }
 
-    .fancy-button:active, .fancy-button.active:active {
+    .fancy-button:active, .fancy-button.active:active,
+    .fancy-button#removeAllNotesBtn:active,
+    .fancy-button#pauseBtn:active  {
       background-image: repeating-linear-gradient(
         45deg,
         rgba(255, 255, 255, 1.0) 0px,
@@ -285,6 +288,14 @@
         rgba(230, 230, 230, 1.0)  4px
       );
       color: black;
+    }
+
+    .fancy-button#removeAllNotesBtn {
+      background: linear-gradient(145deg, #c51e1e, #b40808);
+    }
+
+    .fancy-button#pauseBtn {
+      background: linear-gradient(145deg, #222222, #080808);
     }
 
     /* 背景圖鋪滿且置中 */
@@ -359,8 +370,16 @@
       margin: 1rem;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      gap: 2rem;
       flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    @media (max-width: 400px) {
+      .control-panel {
+        display: grid;
+        grid-template-rows: 0.5fr 1fr;
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     .info-block {
@@ -381,8 +400,10 @@
     }
 
     .control-right {
-      display: flex;
-      flex-direction: column;
+      grid-column: span 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
@@ -435,6 +456,7 @@
       justify-content: center;
       align-items: center;
       z-index: 9999;
+      -webkit-backdrop-filter: blur(10px);
       backdrop-filter: blur(10px);
     }
 
@@ -812,6 +834,10 @@
   </style>
 </head>
 <body>
+  <audio id="main_page_bgm" src="assets/sounds/mainpage.mp3" loop="true" preload="auto"></audio>
+  <audio id="gameplay_page_bgm" src="assets/sounds/gameplay.mp3" loop="true" preload="auto"></audio>
+  <audio id="achievements-page_bgm" src="assets/sounds/achievement.mp3" loop="true" preload="auto"></audio>
+
   <!-- Splash Screen -->
   <div id="splash_screen" class="screen active">
     <div class="logo-box enter"><img src="assets/logo.png" alt="Logo" /></div>
@@ -820,11 +846,11 @@
   <!-- Main Page -->
   <div id="main_page" class="screen">
     <div class="scene-layer">
-      <img id="bg-image" class="bg" />
+      <img id="bg-image" class="bg" alt="Background"/>
       <div class="sudoku-marquee top">
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
-      <img id="char-image" class="char" />
+      <img id="char-image" class="char" alt="Character"/>
       <!-- <button class="settings-button" onclick="openSettings()">⚙️</button> -->
     </div>
     <div class="main-lower">
@@ -873,8 +899,10 @@
         <div class="value" data-content="0" id="errors">0</div>
       </div>
       <div class="control-right">
-        <button id="noteModeBtn" class="fancy-button"><i class="ph ph-note icon"></i> 筆記模式</button>
-        <button id="fillNotesBtn" class="fancy-button"><i class="ph ph-pen icon"></i> 智慧提示筆記</button>
+        <button id="noteModeBtn" class="fancy-button"><i class="ph ph-note icon"></i>筆記</button>
+        <button id="fillNotesBtn" class="fancy-button"><i class="ph ph-pen icon"></i>自動</button>
+        <button id="removeAllNotesBtn" class="fancy-button"><i class="ph ph-eraser icon"></i>清除</button>
+        <button id="pauseBtn" class="fancy-button"><i class="ph ph-pause icon"></i>暫停</button>
       </div>
     </div>
     <div id="sudoku-board"></div>
@@ -975,13 +1003,25 @@
       }
     }
 
+    function playClickSound() {
+      const sound = new Audio('assets/sounds/click.mp3');
+      sound.play();
+    }
+
     let randomFunc = Math.random;
     let mode, cachedToday;
 
     window.addEventListener('DOMContentLoaded', async () => {
       loadSceneImages();
+      document.querySelectorAll("button")
+        .forEach(button => button
+          .addEventListener("click", function(event){ 
+            event.target.blur(); 
+            playClickSound();
+          }));
+
       await runSplashScene();
-      goToScene(main);
+      await goToScene(main);
 
       setInterval(() => {
         updateTodayButton();
@@ -1005,6 +1045,29 @@
 
     async function runSplashScene(){
       await wait(1500);
+      await new Promise((resolve) => {
+        showPopup({
+          title: "歡迎進入「快速筆記數獨」的世界", 
+          content:`
+            <p>「快速筆記數獨」顧名思義就是可以讓遊戲自己幫你做好筆記的數獨遊戲方式，遊玩過程會比以往的數獨遊戲來得快，準備好也來體驗了嗎？</p>
+            <br/>
+            <ul style="list-style-position: inside;">
+              <li>程式：<small>悠太翼</small></li>
+              <li>程式輔助：<small>ChatGPT</small></li>
+              <li>背景圖片：<small>Midjourney</small></li>
+              <li>音樂：<small>Suno AI</small></li>
+              <li>音效：<small>魔王魂</small></li>
+            </ul>
+          `,
+          buttons: [{
+            text: "進入遊戲",
+            onClick: () => {
+              resolve();
+              return false;
+            }
+          }]});
+      });
+      await wait(500);
       var logoBox = splash.querySelector('.logo-box');
       logoBox.classList.remove('enter');
       logoBox.classList.add('leave');
@@ -1158,10 +1221,18 @@
         if (pageName !== scene && page !== scene)
         {
           page.classList.remove('active');
+          var bgm = document.getElementById(`${page.id}_bgm`);
+          if (bgm) {
+            bgm.pause();
+            bgm.currentTime = 0;
+          }
           continue;
         }
         page.classList.add('active');
         replayAnimationWorkaround(page, animationReplayElementQueries[`#${page.id}`]);
+        
+        document.getElementById(`${page.id}_bgm`)
+          ?.play();
       }
 
       window.scrollTo({
@@ -1366,6 +1437,22 @@
       });
     }
 
+    function removeAllNotes() {
+      document.querySelectorAll('.cell').forEach(cell => {
+        if (!cell.dataset.value || cell.dataset.value === '' || cell.classList.contains("error")) {
+          const r = parseInt(cell.dataset.row);
+          const c = parseInt(cell.dataset.col);
+
+          if (cell.querySelector('.notes')) {
+            const notes = cell.querySelector('.notes');
+            for (let i = 1; i <= 9; i++) {
+              notes.children[i - 1].textContent = '';
+            }
+          }
+        }
+      });
+    }
+
     function updateHighlights() {
       // 先清除所有 highlight 和 notes 粗體
       document.querySelectorAll('.cell').forEach(cell => {
@@ -1451,6 +1538,30 @@
     fillNotesBtn.addEventListener('click', () => {
       fillAllNotes();
       updateHighlights();
+    });
+
+    const removeAllNotesBtn = document.getElementById('removeAllNotesBtn');
+    removeAllNotesBtn.addEventListener('click', () => {
+      removeAllNotes();
+      updateHighlights();
+    });
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    pauseBtn.addEventListener('click', () => {
+      let currentTimeDiff = getCurrentTimeDiff();
+      clearInterval(timerInterval);
+      showPopup({
+        title: "暫停遊戲", 
+        content: "稍微休息一下吧！",
+        buttons: [
+          {
+            text: "回到遊戲", 
+            onClick: () => {
+              startTimer(Date.now() - currentTimeDiff * 1000);
+              return false;
+            }
+          }
+        ]});
     });
 
     function updateNumberPad() {
@@ -1684,8 +1795,10 @@
       return Math.floor((Date.now() - startTime) / 1000);
     }
 
-    function startTimer() {
-      startTime = Date.now();
+    function startTimer(specifiedStartTime) {
+      startTime = specifiedStartTime !== undefined
+        ? specifiedStartTime
+        : Date.now();
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         const diff = getCurrentTimeDiff();
@@ -1779,6 +1892,7 @@
         btn.textContent = text;
         btn.classList.add("fancy-button");
         btn.onclick = () => {
+          playClickSound();
           let shouldKeepStay = onClick?.();
           if (!shouldKeepStay) hidePopup();
         };
@@ -1940,7 +2054,7 @@
         .toString()
         .padStart(2, "0")}`;
       const errorStr = `<i class="ph ph-x-circle"></i> 錯誤：${record.errors}`;
-      const solvedAtStr = `<i class="ph ph-flag-checkered"></i> 完成於 ${date.toLocaleString("zh-TW")}`;
+      const solvedAtStr = `<i class="ph ph-flag-checkered"></i> 完成於 ${new Date(record.solvedAt * 1000).toLocaleString("zh-TW")}`;
 
       const titleEl = document.createElement("div");
       titleEl.className = "title";
