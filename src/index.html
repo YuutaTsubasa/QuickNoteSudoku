@@ -264,6 +264,10 @@
       background: linear-gradient(145deg, #01a532, #016d2e);
     }
 
+    .fancy-button.warning {
+      background: linear-gradient(145deg, #a50101, #6d0101);
+    }
+
     .fancy-button:hover, .fancy-button.active:hover,
     .fancy-button#removeAllNotesBtn:hover,
     .fancy-button#pauseBtn:hover  {
@@ -537,6 +541,12 @@
       color: white;
     }
 
+    .cell.filled:has(.user) {
+      background: linear-gradient(145deg, #49da11, #32ac03);
+      font-weight: bold;
+      color: white;
+    }
+
     /* 數字顯示 */
     .cell .value {
       position: absolute;
@@ -703,6 +713,7 @@
 
     .achievement-section {
       margin-bottom: 2rem;
+      animation: enterAnimation 0.5s ease-out 0s forwards;
     }
 
     .stats-grid {
@@ -994,9 +1005,9 @@
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
       <div class="button-area has-grid">
-        <button id="today-button" class="fancy-button" onclick="startPuzzle(TODAY_MODE)">今日數獨</button>
-        <button class="fancy-button" onclick="startPuzzle(FREE_MODE)">自由遊玩</button>
-        <button class="fancy-button" onclick="showCustomPopup()">自訂遊玩</button>
+        <button id="today-button" class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { startPuzzle(TODAY_MODE); return false; })">今日數獨</button>
+        <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { startPuzzle(FREE_MODE); return false; })">自由遊玩</button>
+        <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { showCustomPopup(); return true; })">自訂遊玩</button>
         <button class="fancy-button" onclick="renderAchievements()">成就</button>
       </div>
     </div>
@@ -1012,6 +1023,7 @@
           buttons: [
             {
               text: "取消",
+              soundType: CANCEL_SOUND_TYPE,
               onClick: () => { return false; }
             },
             {
@@ -1140,8 +1152,14 @@
       }
     }
 
-    function playClickSound() {
-      const sound = new Audio('assets/sounds/click.mp3');
+    const CONFIRM_SOUND_TYPE = "confirm";
+    const CANCEL_SOUND_TYPE = "cancel";
+    const SWITCH_SOUND_TYPE = "switch";
+    const CORRECT_SOUND_TYPE = "correct";
+    const WRONG_SOUND_TYPE = "wrong";
+    const WIN_SOUND_TYPE = "win";
+    function playSound(type) {
+      const sound = new Audio(`assets/sounds/${type}.mp3`);
       sound.volume = getEffectiveVolume('sfx');
       sound.play();
     }
@@ -1151,21 +1169,25 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       updateAllAudioVolumes();
-      loadSceneImages();
+      loadAssets();
+      document.querySelectorAll('.back-button')
+        .forEach(button => {
+          button.addEventListener("click", function(event) {
+            playSound(SWITCH_SOUND_TYPE);
+          });
+        });
       document.querySelectorAll("button")
         .forEach(button => {
           button.addEventListener("click", function(event){
-            setTimeout(() => btn.blur(), 0); 
-            playClickSound();
-          })
+            setTimeout(() => button.blur(), 0); 
+          });
         });
-
-      await runSplashScene();
-      await goToScene(main);
-
+        
       setInterval(() => {
         updateTodayButton();
       }, 1000);
+      await runSplashScene();
+      await goToScene(main);
     });
 
     function updateTodayButton(){
@@ -1221,7 +1243,7 @@
           <textarea id="customPuzzleInput" rows="9" style="width: 100%; resize: none; font-size: 20px" placeholder="請輸入 9 行，每行 9 個數字"></textarea>
         `,
         buttons: [
-          { text: "取消", onClick: () => {} },
+          { text: "取消", soundType: CANCEL_SOUND_TYPE, onClick: () => {} },
           { text: "開始遊玩", onClick: () => handleCustomGameStart() }
         ]
       });
@@ -1320,15 +1342,8 @@
         randomFunc = Math.random;
       }
 
-      document.querySelector(".topbar-title")
-        .innerHTML = mode === TODAY_MODE
-          ? "今日數獨 <span style='font-size: 1rem'>Today's Sudoku</span>"
-          : mode === FREE_MODE
-            ? "自由遊玩 <span style='font-size: 1rem'>Free Play</span>"
-            : mode === CUSTOM_MODE
-              ? "自訂遊玩 <span style='font-size: 1rem'>Custom Play</span>"
-              : "";
-
+      updateGameplayTitle();
+      
       goToScene(gameplay);
       if (mode === CUSTOM_MODE){
         startNewGame(selectedPuzzle);
@@ -1338,11 +1353,24 @@
       }
     }
 
-    function loadSceneImages() {
+    function updateGameplayTitle(){
+      document.querySelector(".topbar-title")
+        .innerHTML = mode === TODAY_MODE
+          ? "今日數獨 <span style='font-size: 1rem'>Today's Sudoku</span>"
+          : mode === FREE_MODE
+            ? "自由遊玩 <span style='font-size: 1rem'>Free Play</span>"
+            : mode === CUSTOM_MODE
+              ? "自訂遊玩 <span style='font-size: 1rem'>Custom Play</span>"
+              : "";
+    }
+
+    function loadAssets() {
       const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
       const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
-      const sound = new Audio('assets/sounds/click.mp3');
-      sound.preload = "auto";
+      const sounds = [
+        new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`)
+      ];
+      sounds.forEach(sound => sound.preload = "auto");
 
       document.getElementById("bg-image").src = bg;
       document.getElementById("char-image").src = char;
@@ -1372,6 +1400,7 @@
     }
 
     function openSettings(title, onClickButton) {
+        playSound(CONFIRM_SOUND_TYPE);
         showPopup({
           title: title ?? "設定",
           content: `
@@ -1410,7 +1439,7 @@
             </div>
           `,
           buttons: [
-            { text: "關閉", onClick: onClickButton ?? (() => false) }
+            { text: "確認", onClick: onClickButton ?? (() => false) }
           ]
         });
 
@@ -1443,11 +1472,13 @@
         });
 
         document.getElementById("lockToNotesOnlyCheckbox").addEventListener("change", e => {
+          playSound(SWITCH_SOUND_TYPE);
           localStorage.setItem("lockToNotesOnly", e.target.checked);
         });
 
         // 備份：轉為 Base64 並複製
         document.getElementById("btn-backup").addEventListener("click", () => {
+          playSound(CONFIRM_SOUND_TYPE);
           const data = localStorage.getItem("sudoku_results");
           if (data) {
             const base64 = toBase64(data);
@@ -1472,7 +1503,9 @@
             localStorage.setItem("sudoku_results", JSON.stringify(parsed));
             input.style.backgroundColor = "#d4f8d4";
             input.style.borderColor = "#3cba54";
+            playSound(CONFIRM_SOUND_TYPE);
           } catch (e) {
+            playSound(CANCEL_SOUND_TYPE);
             input.style.backgroundColor = "#fdd";
             input.style.borderColor = "#f44336";
           }
@@ -1556,6 +1589,7 @@
       board.appendChild(cell);
 
       cell.addEventListener('click', () => {
+        playSound(SWITCH_SOUND_TYPE);
         if (selectedCell) selectedCell.classList.remove('selected');
         selectedCell = cell;
         cell.classList.add('selected');
@@ -1633,12 +1667,18 @@
 
     numberPad.addEventListener('click', e => {
       const num = parseInt(e.target.dataset.num);
-      if (!num || !selectedCell) return;
+      if (!num || !selectedCell) {
+        playSound(CANCEL_SOUND_TYPE);
+        return;
+      }
       handleNumberInput(num);
     });
 
     document.addEventListener('keydown', e => {
-      if (!selectedCell) return;
+      if (!selectedCell) {
+        playSound(CANCEL_SOUND_TYPE);
+        return;
+      }
       const num = parseInt(e.key);
       if (num >= 1 && num <= 9) {
         handleNumberInput(num);
@@ -1646,6 +1686,7 @@
     });
 
     noteModeBtn.addEventListener('click', () => {
+      playSound(SWITCH_SOUND_TYPE);
       isNoteMode = !isNoteMode;
       noteModeBtn.classList.toggle('active', isNoteMode);
       updateHighlights();
@@ -1707,18 +1748,29 @@
     }
 
     function removeAllNotes() {
-      document.querySelectorAll('.cell').forEach(cell => {
-        if (!cell.dataset.value || cell.dataset.value === '' || cell.classList.contains("error")) {
-          const r = parseInt(cell.dataset.row);
-          const c = parseInt(cell.dataset.col);
+      showPopup({
+        title: "清除全筆記",
+        content: "確定要清除全部筆記嗎？",
+        buttons: [
+          {text: "取消", soundType: CANCEL_SOUND_TYPE, onClick: () => false},
+          {text: "確定", onClick: () => {
+            document.querySelectorAll('.cell').forEach(cell => {
+              if (!cell.dataset.value || cell.dataset.value === '' || cell.classList.contains("error")) {
+                const r = parseInt(cell.dataset.row);
+                const c = parseInt(cell.dataset.col);
 
-          if (cell.querySelector('.notes')) {
-            const notes = cell.querySelector('.notes');
-            for (let i = 1; i <= 9; i++) {
-              notes.children[i - 1].textContent = '';
-            }
-          }
-        }
+                if (cell.querySelector('.notes')) {
+                  const notes = cell.querySelector('.notes');
+                  for (let i = 1; i <= 9; i++) {
+                    notes.children[i - 1].textContent = '';
+                  }
+                }
+              }
+            });
+            updateHighlights();
+            return false;
+          }}
+        ]
       });
     }
 
@@ -1805,14 +1857,15 @@
 
     const fillNotesBtn = document.getElementById('fillNotesBtn');
     fillNotesBtn.addEventListener('click', () => {
+      playSound(CONFIRM_SOUND_TYPE);
       fillAllNotes();
       updateHighlights();
     });
 
     const removeAllNotesBtn = document.getElementById('removeAllNotesBtn');
     removeAllNotesBtn.addEventListener('click', () => {
+      playSound(CANCEL_SOUND_TYPE);
       removeAllNotes();
-      updateHighlights();
     });
 
     const pauseBtn = document.getElementById('pauseBtn');
@@ -1856,7 +1909,10 @@
     }
 
     function showWinOverlay() {
+      playSound(WIN_SOUND_TYPE);
+      clearInterval(timerInterval);
       saveSudokuResult(mode, puzzle, solution, errorCount, getCurrentTimeDiff());
+      localStorage.removeItem("sudoku_temp");
       showPopup({
         title: "恭喜完成！",
         content: "你成功完成了這個挑戰！",
@@ -1981,17 +2037,35 @@
     }
 
     function handleNumberInput(num) {
-      if (!selectedCell || selectedCell.classList.contains('filled')) return;
+      document.querySelectorAll('.cell.error').forEach(cell => {
+        cell.classList.remove('error');
+        let valueDiv = cell.querySelector('.value');
+        if (valueDiv) {
+          cell.removeChild(valueDiv);
+          cell.removeAttribute("data-value");
+        }
+      });
+
+      if (!selectedCell || selectedCell.classList.contains('filled')) {
+        playSound(CANCEL_SOUND_TYPE);
+        return;
+      }
 
       if (isNoteMode) {
-        if (selectedCell.classList.contains('locked')) return;
+        if (selectedCell.classList.contains('locked')) {
+          playSound(CANCEL_SOUND_TYPE);
+          return;
+        }
         toggleNote(selectedCell, num);
 
         let valueDiv = selectedCell.querySelector('.value');
+        selectedCell.classList.remove('error');
         if (valueDiv) {
-          valueDiv.textContent = '';
-          selectedCell.dataset.value = null;
+          selectedCell.removeChild(valueDiv);
+          selectedCell.removeAttribute("data-value");
         }
+        updateHighlights();
+        playSound(SWITCH_SOUND_TYPE);
         return;
       }
 
@@ -2000,6 +2074,7 @@
           (localStorage.getItem("lockToNotesOnly") === null ||
           localStorage.getItem("lockToNotesOnly") === "true") &&
           [...notes.querySelectorAll("div")].every(note => note.textContent !== num.toString())){
+        playSound(CANCEL_SOUND_TYPE);
         showPopup({
           title: "鎖定填入",
           content: "目前有開啟「在該格有筆記的情況，僅允許輸入已填入筆記的數字」功能，若想關閉此功能，可按下暫停按鈕進入設定選單調整。",
@@ -2028,11 +2103,13 @@
         selectedCell.classList.remove("error");
         removeNotesAround(selectedCell, num);
         if (notes) selectedCell.removeChild(notes);
+        playSound(CORRECT_SOUND_TYPE);
       } else {
         selectedCell.classList.add("error");
         errorCount++;
         errorDisplay.textContent = errorCount;
         errorDisplay.setAttribute("data-content", errorCount);
+        playSound(WRONG_SOUND_TYPE);
       }
 
       updateHighlights();
@@ -2048,6 +2125,59 @@
         filled[0].classList.add('single');
       }
     }
+
+    function resumeGame(
+      resumedPuzzle,
+      resumedSolution,
+      resumedUserInput,
+      resumedNotes,
+      resumedTime,
+      resumedErrors,
+      resumedMode,
+      resumedTodayDate
+    ) {
+      mode = resumedMode;
+      puzzle = resumedPuzzle;
+      solution = resumedSolution;
+      startTime = Date.now() - +resumedTime * 1000;
+      errorCount = +resumedErrors;
+      cachedToday = resumedTodayDate || null;
+
+      initBoard(puzzle, solution);
+      startTimer(startTime);
+      errorDisplay.textContent = errorCount;
+      errorDisplay.setAttribute("data-content", errorCount);
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const val = resumedUserInput[r][c];
+          const cell = board.querySelector(`.cell.row-${r}.col-${c}`);
+          if (val > 0) {
+            const valueDiv = document.createElement("div");
+            valueDiv.className = 'value user';
+            valueDiv.textContent = val;
+            cell.classList.add("filled");
+            cell.appendChild(valueDiv);
+            cell.dataset.value = val;
+          }
+
+          if (resumedNotes?.[r]?.[c]?.length > 0) {
+            const notesDiv = document.createElement("div");
+            notesDiv.className = "notes";
+            for (let n of resumedNotes[r][c]) {
+              const nDiv = document.createElement("div");
+              nDiv.textContent = n;
+              notesDiv.appendChild(nDiv);
+            }
+            cell.appendChild(notesDiv);
+          }
+        }
+      }
+      
+      updateHighlights();
+      updateGameplayTitle();
+    }
+      
 
     function startNewGame(specifiedPuzzle){
       const { puzzle, solution } = specifiedPuzzle 
@@ -2078,6 +2208,7 @@
         const min = String(Math.floor(diff / 60)).padStart(2, '0');
         const sec = String(diff % 60).padStart(2, '0');
         timerDisplay.textContent = `${min}:${sec}`;
+        saveTempGame();
       }, 1000);
     }
 
@@ -2160,12 +2291,13 @@
       contentEl.innerHTML = content;
 
       buttonsEl.innerHTML = "";
-      buttons.forEach(({ text, onClick }) => {
+      buttons.forEach(({ text, className, soundType, onClick }) => {
         const btn = document.createElement("button");
         btn.textContent = text;
         btn.classList.add("fancy-button");
+        btn.classList.add(className);
         btn.onclick = () => {
-          playClickSound();
+          playSound(soundType ?? CONFIRM_SOUND_TYPE);
           let shouldKeepStay = onClick?.();
           if (!shouldKeepStay) hidePopup();
         };
@@ -2184,9 +2316,10 @@
     }
 
     async function renderAchievements() {
+      playSound(CONFIRM_SOUND_TYPE);
       await goToScene(achievements);
       let tabs = document.getElementsByClassName("tab-btn");
-      selectAchievementTab(tabs[0]);
+      selectAchievementTab(tabs[0], true);
     }
 
 
@@ -2267,29 +2400,37 @@
     const loadedTabs = new Set();
     document.querySelectorAll(".tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        selectAchievementTab(btn);
+        playSound(SWITCH_SOUND_TYPE);
+        selectAchievementTab(btn, false);
       });
     });
 
-    function selectAchievementTab(btn) {
+    async function selectAchievementTab(btn, isFirstTime) {
       // 切換 active 樣式
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
+      btn.classList.add("active");
 
-        // 切換顯示區塊
-        const target = btn.dataset.tab;
+      // 切換顯示區塊
+      const target = btn.dataset.tab;
+      if (!isFirstTime) {
         document.querySelectorAll(".achievement-section").forEach(sec => {
-          sec.style.display = "none";
+          sec.classList.add("leave");
         });
-        document.getElementById(`${target}-section`).style.display = "block";
+        await wait(500);
+      }
+      document.querySelectorAll(".achievement-section").forEach(sec => {
+        sec.classList.remove("leave");
+        sec.style.display = "none";
+      });
+      document.getElementById(`${target}-section`).style.display = "block";
 
-        // 根據 tab 載入內容
-        if (target === "stats") {
-          loadStatisticsPage(); // 原有統計邏輯
-        } else if (!loadedTabs.has(target)) {
-          renderAchievementTab(target); // 新增懶加載成就
-          loadedTabs.add(target);
-        }
+      // 根據 tab 載入內容
+      if (target === "stats") {
+        loadStatisticsPage(); // 原有統計邏輯
+      } else if (!loadedTabs.has(target)) {
+        renderAchievementTab(target); // 新增懶加載成就
+        loadedTabs.add(target);
+      }
     }
 
     document.querySelectorAll(".achievement-section").forEach((sec, idx) => {
@@ -2349,9 +2490,14 @@
 
       const replayBtn = document.createElement("button");
       replayBtn.className = "fancy-button";
-      replayBtn.textContent = "重新遊玩";
+      replayBtn.textContent = "以自訂模式重新遊玩";
       replayBtn.onclick = () => {
-        startPuzzle(CUSTOM_MODE, record.puzzle);
+        tryResumeGame(() => {
+          goToScene(gameplay);
+          return false;
+        }, () => {
+          startPuzzle(CUSTOM_MODE, record.puzzle);
+        });
       };
 
       info.append(titleEl, timeEl, errorEl, solvedAtEl, replayBtn);
@@ -2365,15 +2511,98 @@
       let listEl = document.getElementById(`${tabName}-list`);
       listEl.innerHTML = ""; // 保險清空一下
 
+      let hasData = false;
       if (tabName === "today") {
         for (const [date, record] of Object.entries(data.today || {}).reverse()) {
           listEl.appendChild(createAchievementItem(record, "today", date));
+          hasData = true;
         }
       } else {
         for (const record of (data[tabName] || []).reverse()) {
           listEl.appendChild(createAchievementItem(record, tabName));
+          hasData = true;
         }
       }
+
+      if (!hasData) listEl.innerHTML = "<div style='padding: 100px 10px; font-size: 20px;'><strong>尚未有任何紀錄，趕快去玩一局吧！</strong></div>"
+    }
+
+    function saveTempGame() {
+      const userInput = [...Array(9)].map((_, r) =>
+        [...Array(9)].map((_, c) => {
+          const cell = board.querySelector(`.cell.row-${r}.col-${c}:not(.error)`);
+          const value = cell?.querySelector(".value.user")?.textContent ?? null;
+          return value ? parseInt(value) : 0;
+        })
+      );
+
+      const notes = [...Array(9)].map((_, r) =>
+        [...Array(9)].map((_, c) => {
+          const cell = board.querySelector(`.cell.row-${r}.col-${c}`);
+          const noteDivs = cell?.querySelectorAll(".notes div") || [];
+          return [...noteDivs].map(n => parseInt(n.textContent));
+        })
+      );
+
+      const temp = { mode, cachedToday, puzzle, solution, userInput, notes, time: getCurrentTimeDiff(), errors: errorCount };
+      localStorage.setItem("sudoku_temp", JSON.stringify(temp));
+    }
+
+    function tryResumeGame(onConfirm, onCancel) {
+      playSound(CONFIRM_SOUND_TYPE);
+      const tempRaw = localStorage.getItem("sudoku_temp");
+      if (!tempRaw) {
+        onCancel();
+        return;
+      }
+
+      const temp = JSON.parse(tempRaw);
+      showPopup({
+        title: "還原遊戲？",
+        content: "偵測到上次未完成的遊戲，是否要繼續？",
+        buttons: [
+          { text: "取消", 
+            soundType: CANCEL_SOUND_TYPE, 
+            onClick: () => {
+              return false;
+            }
+          },
+          { 
+            text: "捨棄重來", 
+            className: "warning",
+            soundType: CANCEL_SOUND_TYPE, 
+            onClick: () => {
+                localStorage.removeItem("sudoku_temp");
+                return onCancel();
+              }
+          },
+          { 
+            text: "繼續遊戲", onClick: () => {
+              const {
+                puzzle,
+                solution,
+                userInput,
+                notes,
+                time,
+                errors,
+                mode,
+                todayDate
+              } = temp;
+              resumeGame(
+                puzzle,
+                solution,
+                userInput,
+                notes,
+                time,
+                errors,
+                mode,
+                todayDate
+              );
+              return onConfirm();
+            }
+          }
+        ]
+      });
     }
   </script>
 </body>
