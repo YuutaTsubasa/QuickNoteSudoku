@@ -1368,7 +1368,12 @@
       const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
       const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
       const sounds = [
-        new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`)
+        new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${CANCEL_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${SWITCH_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${CORRECT_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${WRONG_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${WIN_SOUND_TYPE}.mp3`),
       ];
       sounds.forEach(sound => sound.preload = "auto");
 
