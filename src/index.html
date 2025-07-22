@@ -332,6 +332,9 @@
     /* 齒輪鈕 */
     .settings-button {
       position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       top: 1rem;
       right: 1rem;
       background-color: rgba(255, 255, 255, 0.8);
@@ -825,6 +828,139 @@
       margin-top: 10px;
     }
 
+    .settings-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      padding: 1rem 0.5rem;
+      font-size: 1rem;
+    }
+
+    .settings-panel label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .label-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .label-title i {
+      font-size: 1.2rem;
+    }
+
+    .settings-panel label i {
+      margin-right: 0.5rem;
+      font-size: 1.2rem;
+      vertical-align: middle;
+    }
+
+    .settings-panel label > i + input {
+      margin-top: 0.5rem;
+    }
+
+    .settings-panel input[type="range"] {
+      width: 100%;
+      appearance: none;
+      height: 6px;
+      background: #ddd;
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    .settings-panel input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #2196f3;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .settings-panel input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #2196f3;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .settings-panel span {
+      align-self: flex-end;
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: -4px;
+    }
+
+    .settings-panel hr {
+      border: none;
+      border-top: 1px solid #ccc;
+      margin: 0.5rem 0;
+    }
+
+    .settings-panel .fancy-button {
+      margin-top: 0.2rem;
+      font-size: 0.95rem;
+      padding: 0.5rem;
+    }
+
+    .settings-panel .settings-checkbox {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+      line-height: 1.2;
+    }
+
+    .settings-panel .settings-checkbox span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .settings-panel .settings-checkbox input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      margin: 0;
+      vertical-align: middle;
+      accent-color: #2196f3; /* 選配：漂亮的藍色勾勾 */
+    }
+
+    .backup-restore-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .backup-section,
+    .restore-section {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-label {
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    #restore-input {
+      flex: 1;
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
     *.leave, screen.leave, #splash_screen.leave, #main_page.leave,
     #gameplay_page.leave, #achievements-page.leave, #general-popup.leave {
       transform: translateX(0);
@@ -834,9 +970,9 @@
   </style>
 </head>
 <body>
-  <audio id="main_page_bgm" src="assets/sounds/mainpage.mp3" loop="true" preload="auto"></audio>
-  <audio id="gameplay_page_bgm" src="assets/sounds/gameplay.mp3" loop="true" preload="auto"></audio>
-  <audio id="achievements-page_bgm" src="assets/sounds/achievement.mp3" loop="true" preload="auto"></audio>
+  <audio data-type="music" id="main_page_bgm" src="assets/sounds/mainpage.mp3" loop="true" preload="auto"></audio>
+  <audio data-type="music" id="gameplay_page_bgm" src="assets/sounds/gameplay.mp3" loop="true" preload="auto"></audio>
+  <audio data-type="music" id="achievements-page_bgm" src="assets/sounds/achievement.mp3" loop="true" preload="auto"></audio>
 
   <!-- Splash Screen -->
   <div id="splash_screen" class="screen active">
@@ -851,7 +987,7 @@
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
       <img id="char-image" class="char" alt="Character"/>
-      <!-- <button class="settings-button" onclick="openSettings()">⚙️</button> -->
+      <button class="settings-button" onclick="openSettings()"><i class="ph ph-gear icon"></i></button>
     </div>
     <div class="main-lower">
       <div class="sudoku-marquee">
@@ -973,6 +1109,7 @@
     const FREE_MODE = "free";
     const CUSTOM_MODE = "custom";
 
+    const volumeKeys = ["masterVolume", "musicVolume", "sfxVolume"];
     const splash = document.getElementById('splash_screen');
     const main = document.getElementById('main_page');
     const gameplay = document.getElementById('gameplay_page');
@@ -1005,6 +1142,7 @@
 
     function playClickSound() {
       const sound = new Audio('assets/sounds/click.mp3');
+      sound.volume = getEffectiveVolume('sfx');
       sound.play();
     }
 
@@ -1012,6 +1150,7 @@
     let mode, cachedToday;
 
     window.addEventListener('DOMContentLoaded', async () => {
+      updateAllAudioVolumes();
       loadSceneImages();
       document.querySelectorAll("button")
         .forEach(button => button
@@ -1206,9 +1345,136 @@
       document.getElementById("char-image").src = char;
     }
 
-    function openSettings() {
-      alert("這裡之後會開啟設定頁喔！");
+    function getEffectiveVolume(type) {
+      const master = parseInt(localStorage.getItem("masterVolume") || "50");
+      const specific = parseInt(localStorage.getItem(`${type}Volume`) || "50");
+      return (master / 100) * (specific / 100);
     }
+
+    function updateAllAudioVolumes() {
+      document.querySelectorAll("audio[data-type='music']").forEach(audio => {
+        audio.volume = getEffectiveVolume("music");
+      });
+      document.querySelectorAll("audio[data-type='sfx']").forEach(audio => {
+        audio.volume = getEffectiveVolume("sfx");
+      });
+    }
+
+    function toBase64(str) {
+      return btoa(unescape(encodeURIComponent(str)));
+    }
+
+    function fromBase64(str) {
+      return decodeURIComponent(escape(atob(str)));
+    }
+
+    function openSettings(title, onClickButton) {
+        showPopup({
+          title: title ?? "設定",
+          content: `
+            <div class="settings-panel">
+              <label><div class="label-title"><i class="ph ph-speaker-simple-high icon"></i>總音量</div>
+                <input type="range" id="volume-master" min="0" max="100" value="${localStorage.getItem(volumeKeys[0]) || '50'}">
+                <span id="volume-master-value">${localStorage.getItem(volumeKeys[0]) || '50'}</span>
+              </label>
+              <label><div class="label-title"><i class="ph ph-music-note icon"></i>音樂音量</div>
+                <input type="range" id="volume-music" min="0" max="100" value="${localStorage.getItem(volumeKeys[1]) || '50'}">
+                <span id="volume-music-value">${localStorage.getItem(volumeKeys[1]) || '50'}</span>
+              </label>
+              <label><div class="label-title"><i class="ph ph-speaker-none icon"></i>音效音量</div>
+                <input type="range" id="volume-sfx" min="0" max="100" value="${localStorage.getItem(volumeKeys[2]) || '50'}">
+                <span id="volume-sfx-value">${localStorage.getItem(volumeKeys[2]) || '50'}</span>
+              </label>
+              <label class="settings-checkbox">
+                <span>
+                  <i class="ph ph-lock-key icon"></i>
+                  <span>在該格有筆記的情況，僅允許輸入已填入筆記的數字</span>
+                  <input type="checkbox" id="lockToNotesOnlyCheckbox" ${(localStorage.getItem('lockToNotesOnly') === null || localStorage.getItem('lockToNotesOnly') === "true") ? 'checked' : ''}/>
+                </span>
+              </label>
+              <hr>
+              <div class="backup-restore-container">
+                <div class="backup-section">
+                  <button id="btn-backup" class="fancy-button">📦 備份存檔</button>
+                  <span id="backup-status" class="status-label"></span>
+                </div>
+
+                <div class="restore-section">
+                  <input type="text" id="restore-input" placeholder="貼上備份資料..." />
+                  <button id="btn-restore" class="fancy-button">📥 還原存檔</button>
+                </div>
+              </div>
+            </div>
+          `,
+          buttons: [
+            { text: "關閉", onClick: onClickButton ?? (() => false) }
+          ]
+        });
+
+        // 綁定邏輯
+        const master = document.getElementById("volume-master");
+        const music = document.getElementById("volume-music");
+        const sfx = document.getElementById("volume-sfx");
+
+        const update = (id, value) => document.getElementById(id).textContent = value;
+
+        master.addEventListener("input", e => {
+          let value = e.target.value;
+          update("volume-master-value", value);
+          localStorage.setItem(volumeKeys[0], value);
+          updateAllAudioVolumes();
+        });
+
+        music.addEventListener("input", e => {
+          let value = e.target.value;
+          update("volume-music-value", value);
+          localStorage.setItem(volumeKeys[1], value);
+          updateAllAudioVolumes();
+        });
+
+        sfx.addEventListener("input", e => {
+          let value = e.target.value;
+          update("volume-sfx-value", value);
+          localStorage.setItem(volumeKeys[2], value);
+          updateAllAudioVolumes();
+        });
+
+        document.getElementById("lockToNotesOnlyCheckbox").addEventListener("change", e => {
+          localStorage.setItem("lockToNotesOnly", e.target.checked);
+        });
+
+        // 備份：轉為 Base64 並複製
+        document.getElementById("btn-backup").addEventListener("click", () => {
+          const data = localStorage.getItem("sudoku_results");
+          if (data) {
+            const base64 = toBase64(data);
+            navigator.clipboard.writeText(base64).then(() => {
+              document.getElementById("backup-status").textContent = "✅ 已複製存檔至剪貼簿";
+            }).catch(() => {
+              document.getElementById("backup-status").textContent = "❌ 複製失敗";
+            });
+          } else {
+            document.getElementById("backup-status").textContent = "⚠️ 沒有資料可備份";
+          }
+        });
+
+        // 還原：從 Base64 轉回 JSON
+        document.getElementById("btn-restore").addEventListener("click", () => {
+          const input = document.getElementById("restore-input");
+          const value = input.value.trim();
+          try {
+            const json = fromBase64(value);
+            const parsed = JSON.parse(json);
+            if (!parsed.today || !parsed.free || !parsed.custom) throw new Error();
+            localStorage.setItem("sudoku_results", JSON.stringify(parsed));
+            input.style.backgroundColor = "#d4f8d4";
+            input.style.borderColor = "#3cba54";
+          } catch (e) {
+            input.style.backgroundColor = "#fdd";
+            input.style.borderColor = "#f44336";
+          }
+        });
+      }
 
     async function goToScene(scene){
       Object.values(allPages).filter(page => page.classList.contains("active"))
@@ -1550,18 +1816,10 @@
     pauseBtn.addEventListener('click', () => {
       let currentTimeDiff = getCurrentTimeDiff();
       clearInterval(timerInterval);
-      showPopup({
-        title: "暫停遊戲", 
-        content: "稍微休息一下吧！",
-        buttons: [
-          {
-            text: "回到遊戲", 
-            onClick: () => {
-              startTimer(Date.now() - currentTimeDiff * 1000);
-              return false;
-            }
-          }
-        ]});
+      openSettings("暫停遊戲", () => {
+        startTimer(Date.now() - currentTimeDiff * 1000);
+        return false;
+      });
     });
 
     function updateNumberPad() {
@@ -1734,6 +1992,19 @@
         return;
       }
 
+      const notes = selectedCell.querySelector('.notes');
+      if (notes &&
+          (localStorage.getItem("lockToNotesOnly") === null ||
+          localStorage.getItem("lockToNotesOnly") === "true") &&
+          [...notes.querySelectorAll("div")].every(note => note.textContent !== num.toString())){
+        showPopup({
+          title: "鎖定填入",
+          content: "目前有開啟「在該格有筆記的情況，僅允許輸入已填入筆記的數字」功能，若想關閉此功能，可按下暫停按鈕進入設定選單調整。",
+          buttons: [{text: "確認", onClick: () => false}]
+        });
+        return;
+      }
+
       const r = parseInt(selectedCell.dataset.row);
       const c = parseInt(selectedCell.dataset.col);
       const correct = solution[r][c];
@@ -1753,7 +2024,6 @@
         selectedCell.classList.add("filled");
         selectedCell.classList.remove("error");
         removeNotesAround(selectedCell, num);
-        const notes = selectedCell.querySelector('.notes');
         if (notes) selectedCell.removeChild(notes);
       } else {
         selectedCell.classList.add("error");
