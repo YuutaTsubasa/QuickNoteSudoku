@@ -339,7 +339,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      top: 1rem;
+      top: calc(env(safe-area-inset-top) + 1rem);
       right: 1rem;
       background-color: rgba(255, 255, 255, 0.8);
       border: none;
@@ -1159,8 +1159,8 @@
     const WRONG_SOUND_TYPE = "wrong";
     const WIN_SOUND_TYPE = "win";
     function playSound(type) {
-      const sound = new Audio(`assets/sounds/${type}.mp3`);
-      sound.volume = getEffectiveVolume('sfx');
+      let sound = sounds[type];
+      changeAudioVolume(sound, "sfx");
       sound.play();
     }
 
@@ -1364,19 +1364,17 @@
               : "";
     }
 
+    let sounds = {};
     function loadAssets() {
       const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
       const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
-      const sounds = [
-        new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${CANCEL_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${SWITCH_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${CORRECT_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${WRONG_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${WIN_SOUND_TYPE}.mp3`),
-      ];
-      sounds.forEach(sound => sound.preload = "auto");
-
+      sounds[CONFIRM_SOUND_TYPE] = new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`);
+      sounds[CANCEL_SOUND_TYPE] = new Audio(`assets/sounds/${CANCEL_SOUND_TYPE}.mp3`);
+      sounds[SWITCH_SOUND_TYPE] = new Audio(`assets/sounds/${SWITCH_SOUND_TYPE}.mp3`);
+      sounds[CORRECT_SOUND_TYPE] = new Audio(`assets/sounds/${CORRECT_SOUND_TYPE}.mp3`);
+      sounds[WRONG_SOUND_TYPE] = new Audio(`assets/sounds/${WRONG_SOUND_TYPE}.mp3`);
+      sounds[WIN_SOUND_TYPE] = new Audio(`assets/sounds/${WIN_SOUND_TYPE}.mp3`);
+      
       document.getElementById("bg-image").src = bg;
       document.getElementById("char-image").src = char;
     }
@@ -1387,12 +1385,16 @@
       return (master / 100) * (specific / 100);
     }
 
+    function changeAudioVolume(audio, key) {
+      audio.volume = getEffectiveVolume(key);
+    }
+
     function updateAllAudioVolumes() {
       document.querySelectorAll("audio[data-type='music']").forEach(audio => {
-        audio.volume = getEffectiveVolume("music");
+        changeAudioVolume(audio, "music");
       });
       document.querySelectorAll("audio[data-type='sfx']").forEach(audio => {
-        audio.volume = getEffectiveVolume("sfx");
+        changeAudioVolume(audio, "sfx");
       });
     }
 
@@ -1432,13 +1434,13 @@
               <hr>
               <div class="backup-restore-container">
                 <div class="backup-section">
-                  <button id="btn-backup" class="fancy-button">📦 備份存檔</button>
+                  <button id="btn-backup" class="fancy-button"><i class="ph ph-package icon"></i> 備份存檔</button>
                   <span id="backup-status" class="status-label"></span>
                 </div>
 
                 <div class="restore-section">
                   <input type="text" id="restore-input" placeholder="貼上備份資料..." />
-                  <button id="btn-restore" class="fancy-button">📥 還原存檔</button>
+                  <button id="btn-restore" class="fancy-button"><i class="ph ph-download-simple icon"></i> 還原存檔</button>
                 </div>
               </div>
             </div>
