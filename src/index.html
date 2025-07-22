@@ -1153,11 +1153,12 @@
       updateAllAudioVolumes();
       loadSceneImages();
       document.querySelectorAll("button")
-        .forEach(button => button
-          .addEventListener("click", function(event){ 
-            event.target.blur(); 
+        .forEach(button => {
+          button.addEventListener("click", function(event){
+            setTimeout(() => btn.blur(), 0); 
             playClickSound();
-          }));
+          })
+        });
 
       await runSplashScene();
       await goToScene(main);
@@ -1186,7 +1187,7 @@
       await wait(1500);
       await new Promise((resolve) => {
         showPopup({
-          title: "歡迎進入「快速筆記數獨」的世界", 
+          title: "快速筆記數獨", 
           content:`
             <p>「快速筆記數獨」顧名思義就是可以讓遊戲自己幫你做好筆記的數獨遊戲方式，遊玩過程會比以往的數獨遊戲來得快，準備好也來體驗了嗎？</p>
             <br/>
@@ -1340,6 +1341,8 @@
     function loadSceneImages() {
       const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
       const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
+      const sound = new Audio('assets/sounds/click.mp3');
+      sound.preload = "auto";
 
       document.getElementById("bg-image").src = bg;
       document.getElementById("char-image").src = char;
@@ -2183,8 +2186,9 @@
     async function renderAchievements() {
       await goToScene(achievements);
       let tabs = document.getElementsByClassName("tab-btn");
-      tabs[0].click();
+      selectAchievementTab(tabs[0]);
     }
+
 
     function formatTime(seconds) {
       const min = Math.floor(seconds / 60);
@@ -2263,8 +2267,13 @@
     const loadedTabs = new Set();
     document.querySelectorAll(".tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        // 切換 active 樣式
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        selectAchievementTab(btn);
+      });
+    });
+
+    function selectAchievementTab(btn) {
+      // 切換 active 樣式
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
 
         // 切換顯示區塊
@@ -2281,8 +2290,7 @@
           renderAchievementTab(target); // 新增懶加載成就
           loadedTabs.add(target);
         }
-      });
-    });
+    }
 
     document.querySelectorAll(".achievement-section").forEach((sec, idx) => {
       sec.style.display = idx === 0 ? "block" : "none";
