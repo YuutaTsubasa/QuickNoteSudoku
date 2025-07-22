@@ -1159,7 +1159,7 @@
     const WRONG_SOUND_TYPE = "wrong";
     const WIN_SOUND_TYPE = "win";
     function playSound(type) {
-      let sound = sounds[type];
+      const sound = new Audio(`assets/sounds/${type}.mp3`);
       changeAudioVolume(sound, "sfx");
       sound.play();
     }
@@ -1364,17 +1364,19 @@
               : "";
     }
 
-    let sounds = {};
     function loadAssets() {
       const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
       const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
-      sounds[CONFIRM_SOUND_TYPE] = new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`);
-      sounds[CANCEL_SOUND_TYPE] = new Audio(`assets/sounds/${CANCEL_SOUND_TYPE}.mp3`);
-      sounds[SWITCH_SOUND_TYPE] = new Audio(`assets/sounds/${SWITCH_SOUND_TYPE}.mp3`);
-      sounds[CORRECT_SOUND_TYPE] = new Audio(`assets/sounds/${CORRECT_SOUND_TYPE}.mp3`);
-      sounds[WRONG_SOUND_TYPE] = new Audio(`assets/sounds/${WRONG_SOUND_TYPE}.mp3`);
-      sounds[WIN_SOUND_TYPE] = new Audio(`assets/sounds/${WIN_SOUND_TYPE}.mp3`);
-      
+      const sounds = [
+        new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${CANCEL_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${SWITCH_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${CORRECT_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${WRONG_SOUND_TYPE}.mp3`),
+        new Audio(`assets/sounds/${WIN_SOUND_TYPE}.mp3`),
+      ];
+      sounds.forEach(sound => sound.preload = "auto");
+
       document.getElementById("bg-image").src = bg;
       document.getElementById("char-image").src = char;
     }
