@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "quick-note-sudoku",
+  "productName": "快速筆記數獨",
   "version": "0.1.10",
   "identifier": "com.yuutatsubasa.quicknotesudoku",
   "build": {
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "quick-note-sudoku",
+        "title": "快速筆記數獨",
         "width": 600,
         "height": 800
       }
