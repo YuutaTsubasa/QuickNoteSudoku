@@ -1008,7 +1008,7 @@
         <button id="today-button" class="fancy-button" onclick="checkAndShowTodaySolvedPopup() ? () => {} : tryResumeGame(() => { goToScene(gameplay); return false; }, () => startPuzzle(TODAY_MODE))">今日數獨</button>
         <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => startPuzzle(FREE_MODE))">自由遊玩</button>
         <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { showCustomPopup(); return true; })">自訂遊玩</button>
-        <button class="fancy-button" onclick="renderAchievements()">成就</button>
+        <button class="fancy-button" onclick="renderAchievements()">遊玩記錄</button>
       </div>
     </div>
   </div>
@@ -1071,7 +1071,7 @@
   <div id="achievements-page" class="screen has-grid">
     <div class="topbar">
       <button class="back-button" onclick="goToScene(main)">←</button>
-      <h1 class="topbar-title">成就紀錄 <span style="font-size: 1rem">Achievements</span></h1>
+      <h1 class="topbar-title">遊玩記錄 <span style="font-size: 1rem">History</span></h1>
     </div>
     <div class="achievement-tabs">
       <button class="tab-btn active" data-tab="stats"><i class="ph ph-chart-bar"></i> 統計</button>
