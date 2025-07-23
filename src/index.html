@@ -998,15 +998,15 @@
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
       <img id="char-image" class="char" alt="Character"/>
-      <button class="settings-button" onclick="openSettings()"><i class="ph ph-gear icon"></i></button>
+      <button class="settings-button" onclick="openSettings(false)"><i class="ph ph-gear icon"></i></button>
     </div>
     <div class="main-lower">
       <div class="sudoku-marquee">
         <div class="scroll-text">QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU QUICK NOTE SUDOKU</div>
       </div>
       <div class="button-area has-grid">
-        <button id="today-button" class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { startPuzzle(TODAY_MODE); return false; })">今日數獨</button>
-        <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { startPuzzle(FREE_MODE); return false; })">自由遊玩</button>
+        <button id="today-button" class="fancy-button" onclick="checkAndShowTodaySolvedPopup() ? () => {} : tryResumeGame(() => { goToScene(gameplay); return false; }, () => startPuzzle(TODAY_MODE))">今日數獨</button>
+        <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => startPuzzle(FREE_MODE))">自由遊玩</button>
         <button class="fancy-button" onclick="tryResumeGame(() => { goToScene(gameplay); return false; }, () => { showCustomPopup(); return true; })">自訂遊玩</button>
         <button class="fancy-button" onclick="renderAchievements()">成就</button>
       </div>
@@ -1190,16 +1190,22 @@
       await goToScene(main);
     });
 
+    function isTodaySolved() {
+      const todayStr = getToday();
+      const isTodaySolved = loadSaveData().today[todayStr];
+      return isTodaySolved;
+    }
+
     function updateTodayButton(){
       const todayButton = main.querySelector("#today-button");
       const todayStr = getToday();
-      const isTodaySolved = loadSaveData().today[todayStr];
+      const isSolved = isTodaySolved();
 
       todayButton.innerHTML = `今日數獨 <small>${todayStr}</small>`;
-      if (isTodaySolved &&
+      if (isSolved &&
           !todayButton.classList.contains("checked")){
         todayButton.classList.add("checked");
-      } else if (!isTodaySolved &&
+      } else if (!isSolved &&
           todayButton.classList.contains("checked")) {
         todayButton.classList.remove("checked");
       }
@@ -1299,22 +1305,29 @@
       return toLocalISOString(new Date()).split("T")[0];
     }
 
-    async function startPuzzle(selectedMode, selectedPuzzle) {
-      mode = selectedMode;
-      if (mode === TODAY_MODE) {
-        cachedToday = getToday(); // e.g., 2025-07-20
-        if (loadSaveData().today[cachedToday]){
-          showPopup({
-            title: "今日數獨",
-            content: "今日數獨已解完，明日再來玩吧！",
-            buttons: [{
-              text: "確認",
-              onClick: () => false
-            }]
-          });
-          return;
+    function checkAndShowTodaySolvedPopup() {
+      if (isTodaySolved()){
+        playSound(CANCEL_SOUND_TYPE);
+        showPopup({
+          title: "今日數獨",
+          content: "今日數獨已解完，明日再來玩吧！",
+          buttons: [{
+            text: "確認",
+            onClick: () => false
+          }]
+        });
+        return true;
+      }
+      return false;
+    }
+
+    function startPuzzle(selectedMode, selectedPuzzle) {
+      if (selectedMode === TODAY_MODE) {
+        if (checkAndShowTodaySolvedPopup()){
+          return true;
         }
 
+        cachedToday = getToday(); // e.g., 2025-07-20
         const seed = seedFromString(cachedToday); // 把字串轉成整數種子
         const rand = mulberry32(seed);
 
@@ -1342,6 +1355,7 @@
         randomFunc = Math.random;
       }
 
+      mode = selectedMode;
       updateGameplayTitle();
       
       goToScene(gameplay);
@@ -1351,6 +1365,7 @@
       else {
         startNewGame();
       }
+      return false;
     }
 
     function updateGameplayTitle(){
@@ -1408,7 +1423,7 @@
       return decodeURIComponent(escape(atob(str)));
     }
 
-    function openSettings(title, onClickButton) {
+    function openSettings(isInGamePlay, title, onClickButton) {
         playSound(CONFIRM_SOUND_TYPE);
         showPopup({
           title: title ?? "設定",
@@ -1433,6 +1448,7 @@
                   <input type="checkbox" id="lockToNotesOnlyCheckbox" ${(localStorage.getItem('lockToNotesOnly') === null || localStorage.getItem('lockToNotesOnly') === "true") ? 'checked' : ''}/>
                 </span>
               </label>
+              ${ !isInGamePlay ? `
               <hr>
               <div class="backup-restore-container">
                 <div class="backup-section">
@@ -1445,6 +1461,7 @@
                   <button id="btn-restore" class="fancy-button"><i class="ph ph-download-simple icon"></i> 還原存檔</button>
                 </div>
               </div>
+              ` : ""}
             </div>
           `,
           buttons: [
@@ -1485,40 +1502,42 @@
           localStorage.setItem("lockToNotesOnly", e.target.checked);
         });
 
-        // 備份：轉為 Base64 並複製
-        document.getElementById("btn-backup").addEventListener("click", () => {
-          playSound(CONFIRM_SOUND_TYPE);
-          const data = localStorage.getItem("sudoku_results");
-          if (data) {
-            const base64 = toBase64(data);
-            navigator.clipboard.writeText(base64).then(() => {
-              document.getElementById("backup-status").textContent = "✅ 已複製存檔至剪貼簿";
-            }).catch(() => {
-              document.getElementById("backup-status").textContent = "❌ 複製失敗";
-            });
-          } else {
-            document.getElementById("backup-status").textContent = "⚠️ 沒有資料可備份";
-          }
-        });
-
-        // 還原：從 Base64 轉回 JSON
-        document.getElementById("btn-restore").addEventListener("click", () => {
-          const input = document.getElementById("restore-input");
-          const value = input.value.trim();
-          try {
-            const json = fromBase64(value);
-            const parsed = JSON.parse(json);
-            if (!parsed.today || !parsed.free || !parsed.custom) throw new Error();
-            localStorage.setItem("sudoku_results", JSON.stringify(parsed));
-            input.style.backgroundColor = "#d4f8d4";
-            input.style.borderColor = "#3cba54";
+        if (!isInGamePlay) {
+          // 備份：轉為 Base64 並複製
+          document.getElementById("btn-backup").addEventListener("click", () => {
             playSound(CONFIRM_SOUND_TYPE);
-          } catch (e) {
-            playSound(CANCEL_SOUND_TYPE);
-            input.style.backgroundColor = "#fdd";
-            input.style.borderColor = "#f44336";
-          }
-        });
+            const data = localStorage.getItem("sudoku_results");
+            if (data) {
+              const base64 = toBase64(data);
+              navigator.clipboard.writeText(base64).then(() => {
+                document.getElementById("backup-status").textContent = "✅ 已複製存檔至剪貼簿";
+              }).catch(() => {
+                document.getElementById("backup-status").textContent = "❌ 複製失敗";
+              });
+            } else {
+              document.getElementById("backup-status").textContent = "⚠️ 沒有資料可備份";
+            }
+          });
+
+          // 還原：從 Base64 轉回 JSON
+          document.getElementById("btn-restore").addEventListener("click", () => {
+            const input = document.getElementById("restore-input");
+            const value = input.value.trim();
+            try {
+              const json = fromBase64(value);
+              const parsed = JSON.parse(json);
+              if (!parsed.today || !parsed.free || !parsed.custom) throw new Error();
+              localStorage.setItem("sudoku_results", JSON.stringify(parsed));
+              input.style.backgroundColor = "#d4f8d4";
+              input.style.borderColor = "#3cba54";
+              playSound(CONFIRM_SOUND_TYPE);
+            } catch (e) {
+              playSound(CANCEL_SOUND_TYPE);
+              input.style.backgroundColor = "#fdd";
+              input.style.borderColor = "#f44336";
+            }
+          });
+        }
       }
 
     async function goToScene(scene){
@@ -1684,6 +1703,9 @@
     });
 
     document.addEventListener('keydown', e => {
+      if (!document.querySelector("#gameplay_page.active"))
+        return;
+
       if (!selectedCell) {
         playSound(CANCEL_SOUND_TYPE);
         return;
@@ -1881,7 +1903,7 @@
     pauseBtn.addEventListener('click', () => {
       let currentTimeDiff = getCurrentTimeDiff();
       clearInterval(timerInterval);
-      openSettings("暫停遊戲", () => {
+      openSettings(true, "暫停遊戲", () => {
         startTimer(Date.now() - currentTimeDiff * 1000);
         return false;
       });
