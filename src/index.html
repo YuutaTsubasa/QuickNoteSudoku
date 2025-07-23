@@ -1239,7 +1239,7 @@
         showPopup({
           title: "快速筆記數獨", 
           content:`
-            <p>「快速筆記數獨」顧名思義就是可以讓遊戲自己幫你做好筆記的數獨遊戲方式，遊玩過程會比以往的數獨遊戲來得快，準備好也來體驗了嗎？</p>
+            <p>「快速筆記數獨」顧名思義就是可以讓遊戲自己幫你做好筆記的數獨遊戲方式，遊玩過程會比以往的數獨遊戲來得快，準備好來體驗了嗎？</p>
             <br/>
             <ul style="list-style-position: inside;">
               <li>程式：<small>悠太翼</small></li>
@@ -2150,11 +2150,12 @@
         return;
       }
 
-      const notes = selectedCell.querySelector('.notes');
-      if (notes &&
+      const notesNode = selectedCell.querySelector('.notes');
+      const notes = notesNode ? [...notesNode.querySelectorAll('div')] : [];
+      if (notes.length > 0 && notes.some(note => note.textContent !== "") &&
           (localStorage.getItem("lockToNotesOnly") === null ||
           localStorage.getItem("lockToNotesOnly") === "true") &&
-          [...notes.querySelectorAll("div")].every(note => note.textContent !== num.toString())){
+          notes.every(note => note.textContent !== num.toString())){
         playSound(CANCEL_SOUND_TYPE);
         showPopup({
           title: "鎖定填入",
@@ -2183,7 +2184,7 @@
         selectedCell.classList.add("filled");
         selectedCell.classList.remove("error");
         removeNotesAround(selectedCell, num);
-        if (notes) selectedCell.removeChild(notes);
+        if (notesNode) selectedCell.removeChild(notesNode);
         playSound(CORRECT_SOUND_TYPE);
       } else {
         selectedCell.classList.add("error");
@@ -2224,6 +2225,7 @@
       errorCount = +resumedErrors;
       cachedToday = resumedTodayDate || null;
 
+      selectedCell = null;
       initBoard(puzzle, solution);
       startTimer(startTime);
       errorDisplay.textContent = errorCount;
@@ -2569,9 +2571,13 @@
       const solvedAtEl = document.createElement("div");
       solvedAtEl.innerHTML = solvedAtStr;
 
+      const buttonArea = document.createElement("div");
+      buttonArea.style.display = "flex";
+      buttonArea.style.gap = "5px";
+
       const replayBtn = document.createElement("button");
       replayBtn.className = "fancy-button";
-      replayBtn.textContent = "以自訂模式重新遊玩";
+      replayBtn.textContent = "自訂重玩";
       replayBtn.onclick = () => {
         tryResumeGame(() => {
           goToScene(gameplay);
@@ -2581,7 +2587,31 @@
         });
       };
 
-      info.append(titleEl, timeEl, errorEl, solvedAtEl, replayBtn);
+      const shareButton = document.createElement("button");
+      shareButton.className = "fancy-button";
+      shareButton.textContent = "複製題目";
+      shareButton.onclick = () => {
+        playSound(CONFIRM_SOUND_TYPE);
+        navigator.clipboard.writeText(
+          record.puzzle
+            .map(row => row.join(''))
+            .join('\n'))
+            .then(() => {
+              showPopup({title: "複製成功", content: "可以貼給別人遊玩，或是自行貼到自訂模式去遊玩唷！",
+                buttons: [{text: "確認", onClick: () => false}]
+              });
+            })
+            .catch(() => {
+              showPopup({title: "複製錯誤", content: "發生不明錯誤，請再試一次看看。",
+                buttons: [{text: "確認", onClick: () => false}]
+              });
+            });
+      };
+
+      buttonArea.appendChild(replayBtn);
+      buttonArea.appendChild(shareButton);
+
+      info.append(titleEl, timeEl, errorEl, solvedAtEl, buttonArea);
 
       container.append(grid, info);
       return container;
@@ -2625,7 +2655,7 @@
         })
       );
 
-      const temp = { mode, cachedToday, puzzle, solution, userInput, notes, time: getCurrentTimeDiff(), errors: errorCount };
+      const temp = { mode, todayDate: cachedToday, puzzle, solution, userInput, notes, time: getCurrentTimeDiff(), errors: errorCount };
       localStorage.setItem("sudoku_temp", JSON.stringify(temp));
     }
 
