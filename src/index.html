@@ -1121,6 +1121,19 @@
     const FREE_MODE = "free";
     const CUSTOM_MODE = "custom";
 
+    const sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const musicGainNode = sharedAudioContext.createGain();
+    const sfxGainNode = sharedAudioContext.createGain();
+
+    musicGainNode.connect(sharedAudioContext.destination);
+    sfxGainNode.connect(sharedAudioContext.destination);
+
+    document.addEventListener("click", () => {
+      if (sharedAudioContext.state === "suspended") {
+        sharedAudioContext.resume();
+      }
+    }, { once: true });
+
     const volumeKeys = ["masterVolume", "musicVolume", "sfxVolume"];
     const splash = document.getElementById('splash_screen');
     const main = document.getElementById('main_page');
@@ -1159,9 +1172,18 @@
     const WRONG_SOUND_TYPE = "wrong";
     const WIN_SOUND_TYPE = "win";
     function playSound(type) {
-      const sound = new Audio(`assets/sounds/${type}.mp3`);
-      changeAudioVolume(sound, "sfx");
-      sound.play();
+      if (sfxBuffers[type]) {
+        const source = sharedAudioContext.createBufferSource();
+        source.buffer = sfxBuffers[type];
+        source.connect(sfxGainNode);
+        source.start();
+      } else {
+        // fallback: 播放 Audio 元素（第一次使用）
+        const temp = new Audio(`assets/sounds/${type}.mp3`);
+        temp.volume = getEffectiveVolume("sfx");
+        temp.play();
+        loadSoundBuffer(type); // 預先載入下次快取
+      }
     }
 
     let randomFunc = Math.random;
@@ -1379,18 +1401,26 @@
               : "";
     }
 
+    let sfxBuffers = {};
+    async function loadSoundBuffer(name) {
+      const res = await fetch(`assets/sounds/${name}.mp3`);
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await sharedAudioContext.decodeAudioData(arrayBuffer);
+      sfxBuffers[name] = audioBuffer;
+    }
+
     function loadAssets() {
       const bg = localStorage.getItem("bg") || "./assets/backgrounds/0.png";
       const char = localStorage.getItem("char") || "./assets/characters/0/neutral.png";
-      const sounds = [
-        new Audio(`assets/sounds/${CONFIRM_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${CANCEL_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${SWITCH_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${CORRECT_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${WRONG_SOUND_TYPE}.mp3`),
-        new Audio(`assets/sounds/${WIN_SOUND_TYPE}.mp3`),
-      ];
-      sounds.forEach(sound => sound.preload = "auto");
+      const soundTypes = [
+        CONFIRM_SOUND_TYPE,
+        CANCEL_SOUND_TYPE,
+        SWITCH_SOUND_TYPE,
+        CORRECT_SOUND_TYPE,
+        WRONG_SOUND_TYPE,
+        WIN_SOUND_TYPE
+      ]
+      soundTypes.forEach(loadSoundBuffer);
 
       document.getElementById("bg-image").src = bg;
       document.getElementById("char-image").src = char;
@@ -1403,16 +1433,23 @@
     }
 
     function changeAudioVolume(audio, key) {
-      audio.volume = getEffectiveVolume(key);
+      const type = audio.dataset.type;
+      const vol = getEffectiveVolume(key);
+      
+      if (!audio.__node) {
+        // 確保只連接一次
+        const node = sharedAudioContext.createMediaElementSource(audio);
+        node.connect(type === "music" ? musicGainNode : sfxGainNode);
+        audio.__node = node;
+      }
+
+      if (type === "music") musicGainNode.gain.value = vol;
+      if (type === "sfx") sfxGainNode.gain.value = vol;
     }
 
     function updateAllAudioVolumes() {
-      document.querySelectorAll("audio[data-type='music']").forEach(audio => {
-        changeAudioVolume(audio, "music");
-      });
-      document.querySelectorAll("audio[data-type='sfx']").forEach(audio => {
-        changeAudioVolume(audio, "sfx");
-      });
+      musicGainNode.gain.value = getEffectiveVolume("music");
+      sfxGainNode.gain.value = getEffectiveVolume("sfx");
     }
 
     function toBase64(str) {
@@ -1424,121 +1461,131 @@
     }
 
     function openSettings(isInGamePlay, title, onClickButton) {
-        playSound(CONFIRM_SOUND_TYPE);
-        showPopup({
-          title: title ?? "設定",
-          content: `
-            <div class="settings-panel">
-              <label><div class="label-title"><i class="ph ph-speaker-simple-high icon"></i>總音量</div>
-                <input type="range" id="volume-master" min="0" max="100" value="${localStorage.getItem(volumeKeys[0]) || '50'}">
-                <span id="volume-master-value">${localStorage.getItem(volumeKeys[0]) || '50'}</span>
-              </label>
-              <label><div class="label-title"><i class="ph ph-music-note icon"></i>音樂音量</div>
-                <input type="range" id="volume-music" min="0" max="100" value="${localStorage.getItem(volumeKeys[1]) || '50'}">
-                <span id="volume-music-value">${localStorage.getItem(volumeKeys[1]) || '50'}</span>
-              </label>
-              <label><div class="label-title"><i class="ph ph-speaker-none icon"></i>音效音量</div>
-                <input type="range" id="volume-sfx" min="0" max="100" value="${localStorage.getItem(volumeKeys[2]) || '50'}">
-                <span id="volume-sfx-value">${localStorage.getItem(volumeKeys[2]) || '50'}</span>
-              </label>
-              <label class="settings-checkbox">
-                <span>
-                  <i class="ph ph-lock-key icon"></i>
-                  <span>在該格有筆記的情況，僅允許輸入已填入筆記的數字</span>
-                  <input type="checkbox" id="lockToNotesOnlyCheckbox" ${(localStorage.getItem('lockToNotesOnly') === null || localStorage.getItem('lockToNotesOnly') === "true") ? 'checked' : ''}/>
-                </span>
-              </label>
-              ${ !isInGamePlay ? `
-              <hr>
-              <div class="backup-restore-container">
-                <div class="backup-section">
-                  <button id="btn-backup" class="fancy-button"><i class="ph ph-package icon"></i> 備份存檔</button>
-                  <span id="backup-status" class="status-label"></span>
-                </div>
-
-                <div class="restore-section">
-                  <input type="text" id="restore-input" placeholder="貼上備份資料..." />
-                  <button id="btn-restore" class="fancy-button"><i class="ph ph-download-simple icon"></i> 還原存檔</button>
-                </div>
+      playSound(CONFIRM_SOUND_TYPE);
+      showPopup({
+        title: title ?? "設定",
+        content: `
+          <div class="settings-panel">
+            <label><div class="label-title"><i class="ph ph-speaker-simple-high icon"></i>總音量</div>
+              <input type="range" id="volume-master" min="0" max="100" value="${localStorage.getItem(volumeKeys[0]) || '50'}">
+              <span id="volume-master-value">${localStorage.getItem(volumeKeys[0]) || '50'}</span>
+            </label>
+            <label><div class="label-title"><i class="ph ph-music-note icon"></i>音樂音量</div>
+              <input type="range" id="volume-music" min="0" max="100" value="${localStorage.getItem(volumeKeys[1]) || '50'}">
+              <span id="volume-music-value">${localStorage.getItem(volumeKeys[1]) || '50'}</span>
+            </label>
+            <label><div class="label-title"><i class="ph ph-speaker-none icon"></i>音效音量</div>
+              <input type="range" id="volume-sfx" min="0" max="100" value="${localStorage.getItem(volumeKeys[2]) || '50'}">
+              <span id="volume-sfx-value">${localStorage.getItem(volumeKeys[2]) || '50'}</span>
+            </label>
+            <label class="settings-checkbox">
+              <span>
+                <i class="ph ph-lock-key icon"></i>
+                <span>在該格有筆記的情況，僅允許輸入已填入筆記的數字</span>
+                <input type="checkbox" id="lockToNotesOnlyCheckbox" ${(localStorage.getItem('lockToNotesOnly') === null || localStorage.getItem('lockToNotesOnly') === "true") ? 'checked' : ''}/>
+              </span>
+            </label>
+            ${ !isInGamePlay ? `
+            <hr>
+            <div class="backup-restore-container">
+              <div class="backup-section">
+                <button id="btn-backup" class="fancy-button"><i class="ph ph-package icon"></i> 備份存檔</button>
+                <span id="backup-status" class="status-label"></span>
               </div>
-              ` : ""}
+
+              <div class="restore-section">
+                <input type="text" id="restore-input" placeholder="貼上備份資料..." />
+                <button id="btn-restore" class="fancy-button"><i class="ph ph-download-simple icon"></i> 還原存檔</button>
+              </div>
             </div>
-          `,
-          buttons: [
-            { text: "確認", onClick: onClickButton ?? (() => false) }
-          ]
+            ` : ""}
+          </div>
+        `,
+        buttons: [
+          { text: "確認", onClick: onClickButton ?? (() => false) }
+        ]
+      });
+
+      // 綁定邏輯
+      const master = document.getElementById("volume-master");
+      const music = document.getElementById("volume-music");
+      const sfx = document.getElementById("volume-sfx");
+
+      const update = (id, value) => document.getElementById(id).textContent = value;
+
+      master.addEventListener("input", e => {
+        let value = e.target.value;
+        update("volume-master-value", value);
+        localStorage.setItem(volumeKeys[0], value);
+        updateAllAudioVolumes();
+      });
+
+      music.addEventListener("input", e => {
+        let value = e.target.value;
+        update("volume-music-value", value);
+        localStorage.setItem(volumeKeys[1], value);
+        updateAllAudioVolumes();
+      });
+
+      sfx.addEventListener("input", e => {
+        let value = e.target.value;
+        update("volume-sfx-value", value);
+        localStorage.setItem(volumeKeys[2], value);
+        updateAllAudioVolumes();
+      });
+
+      document.getElementById("lockToNotesOnlyCheckbox").addEventListener("change", e => {
+        playSound(SWITCH_SOUND_TYPE);
+        localStorage.setItem("lockToNotesOnly", e.target.checked);
+      });
+
+      if (!isInGamePlay) {
+        // 備份：轉為 Base64 並複製
+        document.getElementById("btn-backup").addEventListener("click", () => {
+          playSound(CONFIRM_SOUND_TYPE);
+          const data = localStorage.getItem("sudoku_results");
+          if (data) {
+            const base64 = toBase64(data);
+            navigator.clipboard.writeText(base64).then(() => {
+              document.getElementById("backup-status").textContent = "✅ 已複製存檔至剪貼簿";
+            }).catch(() => {
+              document.getElementById("backup-status").textContent = "❌ 複製失敗";
+            });
+          } else {
+            document.getElementById("backup-status").textContent = "⚠️ 沒有資料可備份";
+          }
         });
 
-        // 綁定邏輯
-        const master = document.getElementById("volume-master");
-        const music = document.getElementById("volume-music");
-        const sfx = document.getElementById("volume-sfx");
-
-        const update = (id, value) => document.getElementById(id).textContent = value;
-
-        master.addEventListener("input", e => {
-          let value = e.target.value;
-          update("volume-master-value", value);
-          localStorage.setItem(volumeKeys[0], value);
-          updateAllAudioVolumes();
-        });
-
-        music.addEventListener("input", e => {
-          let value = e.target.value;
-          update("volume-music-value", value);
-          localStorage.setItem(volumeKeys[1], value);
-          updateAllAudioVolumes();
-        });
-
-        sfx.addEventListener("input", e => {
-          let value = e.target.value;
-          update("volume-sfx-value", value);
-          localStorage.setItem(volumeKeys[2], value);
-          updateAllAudioVolumes();
-        });
-
-        document.getElementById("lockToNotesOnlyCheckbox").addEventListener("change", e => {
-          playSound(SWITCH_SOUND_TYPE);
-          localStorage.setItem("lockToNotesOnly", e.target.checked);
-        });
-
-        if (!isInGamePlay) {
-          // 備份：轉為 Base64 並複製
-          document.getElementById("btn-backup").addEventListener("click", () => {
+        // 還原：從 Base64 轉回 JSON
+        document.getElementById("btn-restore").addEventListener("click", () => {
+          const input = document.getElementById("restore-input");
+          const value = input.value.trim();
+          try {
+            const json = fromBase64(value);
+            const parsed = JSON.parse(json);
+            if (!parsed.today || !parsed.free || !parsed.custom) throw new Error();
+            localStorage.setItem("sudoku_results", JSON.stringify(parsed));
+            input.style.backgroundColor = "#d4f8d4";
+            input.style.borderColor = "#3cba54";
             playSound(CONFIRM_SOUND_TYPE);
-            const data = localStorage.getItem("sudoku_results");
-            if (data) {
-              const base64 = toBase64(data);
-              navigator.clipboard.writeText(base64).then(() => {
-                document.getElementById("backup-status").textContent = "✅ 已複製存檔至剪貼簿";
-              }).catch(() => {
-                document.getElementById("backup-status").textContent = "❌ 複製失敗";
-              });
-            } else {
-              document.getElementById("backup-status").textContent = "⚠️ 沒有資料可備份";
-            }
-          });
-
-          // 還原：從 Base64 轉回 JSON
-          document.getElementById("btn-restore").addEventListener("click", () => {
-            const input = document.getElementById("restore-input");
-            const value = input.value.trim();
-            try {
-              const json = fromBase64(value);
-              const parsed = JSON.parse(json);
-              if (!parsed.today || !parsed.free || !parsed.custom) throw new Error();
-              localStorage.setItem("sudoku_results", JSON.stringify(parsed));
-              input.style.backgroundColor = "#d4f8d4";
-              input.style.borderColor = "#3cba54";
-              playSound(CONFIRM_SOUND_TYPE);
-            } catch (e) {
-              playSound(CANCEL_SOUND_TYPE);
-              input.style.backgroundColor = "#fdd";
-              input.style.borderColor = "#f44336";
-            }
-          });
-        }
+          } catch (e) {
+            playSound(CANCEL_SOUND_TYPE);
+            input.style.backgroundColor = "#fdd";
+            input.style.borderColor = "#f44336";
+          }
+        });
       }
+    }
+      
+    function ensureBgmConnected(audio) {
+      if (!audio.__node) {
+        const node = sharedAudioContext.createMediaElementSource(audio);
+        node.connect(musicGainNode);
+        audio.__node = node;
+      }
+      audio.loop = true;
+      changeAudioVolume(audio, "music");
+    }
 
     async function goToScene(scene){
       Object.values(allPages).filter(page => page.classList.contains("active"))
@@ -1551,7 +1598,7 @@
         if (pageName !== scene && page !== scene)
         {
           page.classList.remove('active');
-          var bgm = document.getElementById(`${page.id}_bgm`);
+          let bgm = document.getElementById(`${page.id}_bgm`);
           if (bgm) {
             bgm.pause();
             bgm.currentTime = 0;
@@ -1561,8 +1608,11 @@
         page.classList.add('active');
         replayAnimationWorkaround(page, animationReplayElementQueries[`#${page.id}`]);
         
-        document.getElementById(`${page.id}_bgm`)
-          ?.play();
+        let bgm = document.getElementById(`${page.id}_bgm`);
+        if (bgm) {
+          ensureBgmConnected(bgm);
+          bgm?.play();
+        }
       }
 
       window.scrollTo({
@@ -2633,6 +2683,24 @@
             }
           }
         ]
+      });
+    }
+  </script>
+  <script type="module">
+    if (window.__TAURI__) {
+      import('@tauri-apps/api/window').then(({ appWindow }) => {
+        appWindow.onBlur(() => {
+          document.querySelectorAll("audio[data-type='music']")
+            .forEach(audio => audio.pause());
+        });
+
+        appWindow.onFocus(() => {
+          const activePage = document.querySelector(".screen.active");
+          const bgm = document.getElementById(`${activePage.id}_bgm`);
+          if (bgm) {
+            bgm.play();
+          }
+        });
       });
     }
   </script>
